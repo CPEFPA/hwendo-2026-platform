@@ -8,3 +8,4 @@ build/
 npm-debug.log*
 .vscode/
 .idea/
+public/generate-icon.html
