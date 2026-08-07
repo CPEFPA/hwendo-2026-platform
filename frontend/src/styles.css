@@ -314,7 +314,7 @@ body {
   color: var(--terre);
 }
 
-/* Liste des détenteurs */
+/* Liste des dÃ©tenteurs */
 .detenteurs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -429,7 +429,7 @@ body {
   transform: scale(1.05);
 }
 
-/* Capture médias */
+/* Capture mÃ©dias */
 .media-capture {
   margin-top: 20px;
   padding: 20px;

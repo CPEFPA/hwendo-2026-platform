@@ -17,8 +17,8 @@ export default function DetenteurForm({ onSaved }) {
   const tempId = useMemo(() => 'temp_' + Date.now(), []);
   
   const [form, setForm] = useState({ 
-    // 🆕 Nouveaux champs : type et lieu de signature
-    typePersonne: 'Détenteur',
+    // ðŸ†• Nouveaux champs : type et lieu de signature
+    typePersonne: 'DÃ©tenteur',
     lieuSignature: 'OUIDAH',
     evenement: '',
     
@@ -37,16 +37,16 @@ export default function DetenteurForm({ onSaved }) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setForm({...form, coordonneesGPS: pos.coords.latitude + ',' + pos.coords.longitude});
-          setMsg('📍 Position GPS capturée !');
+          setMsg('ðŸ“ Position GPS capturÃ©e !');
         },
-        (err) => setMsg('❌ GPS refusé')
+        (err) => setMsg('âŒ GPS refusÃ©')
       );
     }
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    setMsg('⏳ Sauvegarde en cours...');
+    setMsg('â³ Sauvegarde en cours...');
     
     const signature = sigCanvas.current && !sigCanvas.current.isEmpty() 
       ? sigCanvas.current.toDataURL('image/png') 
@@ -67,7 +67,7 @@ export default function DetenteurForm({ onSaved }) {
       }
     }
     
-    setMsg('✅ Sauvegardé localement ! Envoi à Google Drive...');
+    setMsg('âœ… SauvegardÃ© localement ! Envoi Ã  Google Drive...');
     
     try {
       const saved = await api.createDetenteur(data);
@@ -78,14 +78,14 @@ export default function DetenteurForm({ onSaved }) {
       const docResult = await api.generateConsentementDoc(data, signature, photos);
       if (docResult.success) {
         if (docResult.docUrl) await db.detenteurs.update(localId, { docUrl: docResult.docUrl });
-        setMsg('✅ Document de consentement généré !');
+        setMsg('âœ… Document de consentement gÃ©nÃ©rÃ© !');
       }
     } catch (err) {
-      setMsg('⚠️ Détenteur sauvegardé, doc en attente');
+      setMsg('âš ï¸ DÃ©tenteur sauvegardÃ©, doc en attente');
     }
     
     setForm({ 
-      typePersonne: 'Détenteur',
+      typePersonne: 'DÃ©tenteur',
       lieuSignature: 'OUIDAH',
       evenement: '',
       nomComplet: '', village: '', sexe: 'M', age: '',
@@ -102,49 +102,49 @@ export default function DetenteurForm({ onSaved }) {
 
   return (
     <form onSubmit={submit} className="hwendo-form">
-      <h2>📝 Nouveau participant</h2>
+      <h2>ðŸ“ Nouveau participant</h2>
       
-      {/* 🆕 NOUVELLE SECTION : Contexte de signature */}
-      <h3>📋 Contexte de la signature</h3>
+      {/* ðŸ†• NOUVELLE SECTION : Contexte de signature */}
+      <h3>ðŸ“‹ Contexte de la signature</h3>
       <div className="form-grid">
         <select value={form.typePersonne} onChange={e=>setForm({...form, typePersonne:e.target.value})}>
-          <option value="Détenteur">🎵 Détenteur de savoirs</option>
-          <option value="Invité">🤝 Invité</option>
-          <option value="Visiteur">🚶 Visiteur</option>
-          <option value="Spectateur">👁️ Spectateur</option>
+          <option value="DÃ©tenteur">ðŸŽµ DÃ©tenteur de savoirs</option>
+          <option value="InvitÃ©">ðŸ¤ InvitÃ©</option>
+          <option value="Visiteur">ðŸš¶ Visiteur</option>
+          <option value="Spectateur">ðŸ‘ï¸ Spectateur</option>
         </select>
         <input placeholder="Lieu de signature *" value={form.lieuSignature} onChange={e=>setForm({...form, lieuSignature:e.target.value})} required />
       </div>
-      <input placeholder="Événement / Occasion (ex: Festival, Visite royale)" value={form.evenement} onChange={e=>setForm({...form, evenement:e.target.value})} />
+      <input placeholder="Ã‰vÃ©nement / Occasion (ex: Festival, Visite royale)" value={form.evenement} onChange={e=>setForm({...form, evenement:e.target.value})} />
       
-      <h3>👤 Identité</h3>
+      <h3>ðŸ‘¤ IdentitÃ©</h3>
       <input placeholder="Nom complet *" value={form.nomComplet} onChange={e=>setForm({...form, nomComplet:e.target.value})} required />
       <input placeholder="Surnom rituel" value={form.surnomRituel} onChange={e=>setForm({...form, surnomRituel:e.target.value})} />
       <div className="form-grid">
-        <input type="number" placeholder="Âge" value={form.age} onChange={e=>setForm({...form, age:e.target.value})} />
+        <input type="number" placeholder="Ã‚ge" value={form.age} onChange={e=>setForm({...form, age:e.target.value})} />
         <select value={form.sexe} onChange={e=>setForm({...form, sexe:e.target.value})}>
-          <option value="M">Masculin</option><option value="F">Féminin</option>
+          <option value="M">Masculin</option><option value="F">FÃ©minin</option>
         </select>
       </div>
       <input placeholder="Village d'origine *" value={form.village} onChange={e=>setForm({...form, village:e.target.value})} required />
       <input placeholder="Fonction au palais" value={form.fonctionPalais} onChange={e=>setForm({...form, fonctionPalais:e.target.value})} />
       <div className="form-grid">
-        <input placeholder="Téléphone" value={form.telephone} onChange={e=>setForm({...form, telephone:e.target.value})} />
+        <input placeholder="TÃ©lÃ©phone" value={form.telephone} onChange={e=>setForm({...form, telephone:e.target.value})} />
         <select value={form.langue} onChange={e=>setForm({...form, langue:e.target.value})}>
           <option value="Fon">Fon</option><option value="Goun">Goun</option>
-          <option value="Mina">Mina</option><option value="Français">Français</option>
+          <option value="Mina">Mina</option><option value="FranÃ§ais">FranÃ§ais</option>
         </select>
       </div>
 
-      <h3>🎭 Permissions</h3>
+      <h3>ðŸŽ­ Permissions</h3>
       <div className="checkbox-group">
         {[
-          ['peutParler', '🎤 Être interviewé(e)'],
-          ['peutChanter', '🎵 Chanter / Jouer'],
-          ['peutEtreFilme', '🎥 Être filmé(e)'],
-          ['peutFilmer', '📸 Être photographié(e)'],
-          ['preterInstrument', '🪘 Prêter un instrument'],
-          ['montrerLieuSacre', '🏛️ Montrer un lieu sacré']
+          ['peutParler', 'ðŸŽ¤ ÃŠtre interviewÃ©(e)'],
+          ['peutChanter', 'ðŸŽµ Chanter / Jouer'],
+          ['peutEtreFilme', 'ðŸŽ¥ ÃŠtre filmÃ©(e)'],
+          ['peutFilmer', 'ðŸ“¸ ÃŠtre photographiÃ©(e)'],
+          ['preterInstrument', 'ðŸª˜ PrÃªter un instrument'],
+          ['montrerLieuSacre', 'ðŸ›ï¸ Montrer un lieu sacrÃ©']
         ].map(([key, label]) => (
           <label key={key}>
             <input type="checkbox" checked={form[key]} onChange={e=>setForm({...form, [key]:e.target.checked})} />
@@ -153,28 +153,28 @@ export default function DetenteurForm({ onSaved }) {
         ))}
       </div>
 
-      <h3>🔒 Spécificités Vodun</h3>
+      <h3>ðŸ”’ SpÃ©cificitÃ©s Vodun</h3>
       <div className="checkbox-group">
         <label>
           <input type="checkbox" checked={form.anonymiser} onChange={e=>setForm({...form, anonymiser:e.target.checked})} />
-          🕶️ Anonymiser mon nom
+          ðŸ•¶ï¸ Anonymiser mon nom
         </label>
         <label>
           <input type="checkbox" checked={form.nomTraditionnelJamaisEcrit} onChange={e=>setForm({...form, nomTraditionnelJamaisEcrit:e.target.checked})} />
-          🤐 Nom traditionnel jamais écrit
+          ðŸ¤ Nom traditionnel jamais Ã©crit
         </label>
       </div>
 
-      <h3>📍 Localisation</h3>
+      <h3>ðŸ“ Localisation</h3>
       <button type="button" onClick={capturerGPS} className="btn-gps">
-        📍 Capturer GPS
+        ðŸ“ Capturer GPS
       </button>
-      {form.coordonneesGPS && <p style={{fontSize:'12px', color:'var(--gris)', marginBottom: '10px'}}>📍 {form.coordonneesGPS}</p>}
+      {form.coordonneesGPS && <p style={{fontSize:'12px', color:'var(--gris)', marginBottom: '10px'}}>ðŸ“ {form.coordonneesGPS}</p>}
 
-      <h3>📝 Notes terrain</h3>
+      <h3>ðŸ“ Notes terrain</h3>
       <textarea placeholder="Observations, contexte..." value={form.notes} onChange={e=>setForm({...form, notes:e.target.value})} />
 
-      <h3>✍️ Signature manuscrite</h3>
+      <h3>âœï¸ Signature manuscrite</h3>
       <div className="signature-box">
         <SignatureCanvas 
           ref={sigCanvas}
@@ -189,7 +189,7 @@ export default function DetenteurForm({ onSaved }) {
       <MediaCapture tempDetenteurId={tempId} />
 
       <button type="submit" className="btn-primary">
-        ✅ Enregistrer le participant
+        âœ… Enregistrer le participant
       </button>
       {msg && <div className="message">{msg}</div>}
     </form>

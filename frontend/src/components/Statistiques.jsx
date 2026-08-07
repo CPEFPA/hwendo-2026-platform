@@ -23,7 +23,7 @@ export default function Statistiques() {
       const files = await db.files.toArray();
 
       const parType = {};
-      dets.forEach(d => { const t = d.typePersonne || 'Détenteur'; parType[t] = (parType[t] || 0) + 1; });
+      dets.forEach(d => { const t = d.typePersonne || 'DÃ©tenteur'; parType[t] = (parType[t] || 0) + 1; });
       const typeData = Object.entries(parType).map(([name, value]) => ({ name, value }));
 
       const sexeData = [
@@ -36,7 +36,7 @@ export default function Statistiques() {
       const villageData = Object.entries(parVillage).sort((a,b) => b[1]-a[1]).map(([name, value]) => ({ name, value }));
 
       const parLangue = {};
-      dets.forEach(d => { const l = d.langue || 'Non renseigné'; parLangue[l] = (parLangue[l] || 0) + 1; });
+      dets.forEach(d => { const l = d.langue || 'Non renseignÃ©'; parLangue[l] = (parLangue[l] || 0) + 1; });
       const langueData = Object.entries(parLangue).sort((a,b) => b[1]-a[1]).map(([name, value]) => ({ name, value }));
 
       const parJour = {};
@@ -52,8 +52,8 @@ export default function Statistiques() {
 
       const permissions = [
         ['peutParler', 'Interview'], ['peutChanter', 'Chant/Audio'],
-        ['peutEtreFilme', 'Filmé'], ['peutFilmer', 'Photographié'],
-        ['preterInstrument', 'Instrument'], ['montrerLieuSacre', 'Lieu sacré']
+        ['peutEtreFilme', 'FilmÃ©'], ['peutFilmer', 'PhotographiÃ©'],
+        ['preterInstrument', 'Instrument'], ['montrerLieuSacre', 'Lieu sacrÃ©']
       ].map(([key, label]) => ({ name: label, value: dets.filter(d => d[key]).length }));
 
       setStats({
@@ -79,21 +79,21 @@ export default function Statistiques() {
   };
 
   const sendEmail = async () => {
-    const email = window.prompt('📧 Adresse email du destinataire :');
+    const email = window.prompt('ðŸ“§ Adresse email du destinataire :');
     if (!email || !email.includes('@')) { alert('Adresse invalide'); return; }
     setSending(true);
     try {
       // Capturer les graphiques en base64
       const images = await capturerGraphiques(stats);
       await api.envoyerRapportEmail(stats, email, images);
-      alert('✅ Rapport envoyé à ' + email + ' !\n(Vérifiez votre boîte mail dans quelques secondes)');
+      alert('âœ… Rapport envoyÃ© Ã  ' + email + ' !\n(VÃ©rifiez votre boÃ®te mail dans quelques secondes)');
     } catch (e) {
-      alert('❌ Erreur: ' + e.message);
+      alert('âŒ Erreur: ' + e.message);
     }
     setSending(false);
   };
 
-  if (!stats) return <div style={{textAlign: 'center', padding: '50px'}}>⏳ Chargement des statistiques...</div>;
+  if (!stats) return <div style={{textAlign: 'center', padding: '50px'}}>â³ Chargement des statistiques...</div>;
 
   const languesTriees = [...stats.langueData].sort((a,b) => b.value - a.value);
   const maxLangue = languesTriees[0]?.value || 1;
@@ -102,24 +102,24 @@ export default function Statistiques() {
     <div>
       <div style={{display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px'}}>
         <button onClick={exportPDF} disabled={exporting} className="btn-action pdf" style={{padding: '10px 20px', fontSize: '14px'}}>
-          {exporting ? '⏳ Génération...' : '📥 Rapport PDF complet'}
+          {exporting ? 'â³ GÃ©nÃ©ration...' : 'ðŸ“¥ Rapport PDF complet'}
         </button>
         <button onClick={sendEmail} disabled={sending} className="btn-action doc" style={{padding: '10px 20px', fontSize: '14px'}}>
-          {sending ? '⏳ Envoi...' : '📧 Envoyer par email'}
+          {sending ? 'â³ Envoi...' : 'ðŸ“§ Envoyer par email'}
         </button>
       </div>
 
       <div className="dashboard-stats">
-        <div className="stat-card"><div className="stat-icon">👥</div><div className="stat-value">{stats.total}</div><div className="stat-label">Participants</div></div>
-        <div className="stat-card"><div className="stat-icon">✍️</div><div className="stat-value">{stats.signes}</div><div className="stat-label">Signés</div></div>
-        <div className="stat-card"><div className="stat-icon">📸</div><div className="stat-value">{stats.photos}</div><div className="stat-label">Photos</div></div>
-        <div className="stat-card"><div className="stat-icon">🎥</div><div className="stat-value">{stats.videos}</div><div className="stat-label">Vidéos</div></div>
-        <div className="stat-card"><div className="stat-icon">🎤</div><div className="stat-value">{stats.audios}</div><div className="stat-label">Audios</div></div>
+        <div className="stat-card"><div className="stat-icon">ðŸ‘¥</div><div className="stat-value">{stats.total}</div><div className="stat-label">Participants</div></div>
+        <div className="stat-card"><div className="stat-icon">âœï¸</div><div className="stat-value">{stats.signes}</div><div className="stat-label">SignÃ©s</div></div>
+        <div className="stat-card"><div className="stat-icon">ðŸ“¸</div><div className="stat-value">{stats.photos}</div><div className="stat-label">Photos</div></div>
+        <div className="stat-card"><div className="stat-icon">ðŸŽ¥</div><div className="stat-value">{stats.videos}</div><div className="stat-label">VidÃ©os</div></div>
+        <div className="stat-card"><div className="stat-icon">ðŸŽ¤</div><div className="stat-value">{stats.audios}</div><div className="stat-label">Audios</div></div>
       </div>
 
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px'}}>
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)', gridColumn: '1 / -1'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>📅 Évolution de l'événement</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸ“… Ã‰volution de l'Ã©vÃ©nement</h3>
           {stats.jourData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={stats.jourData}>
@@ -131,21 +131,21 @@ export default function Statistiques() {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <p style={{color: '#6B5D54', fontStyle: 'italic'}}>Pas encore de données datées.</p>
+            <p style={{color: '#6B5D54', fontStyle: 'italic'}}>Pas encore de donnÃ©es datÃ©es.</p>
           )}
         </div>
 
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)', gridColumn: '1 / -1'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🗺️ Carte des villages d'origine</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸ—ºï¸ Carte des villages d'origine</h3>
           <CarteVillages villageData={stats.villageData} />
         </div>
 
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🏆 Classement des langues</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸ† Classement des langues</h3>
           {languesTriees.map((l, i) => (
             <div key={l.name} style={{marginBottom: '12px'}}>
               <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px'}}>
-                <span style={{fontWeight: 'bold'}}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1) + '.'} {l.name}</span>
+                <span style={{fontWeight: 'bold'}}>{i === 0 ? 'ðŸ¥‡' : i === 1 ? 'ðŸ¥ˆ' : i === 2 ? 'ðŸ¥‰' : (i+1) + '.'} {l.name}</span>
                 <span style={{color: 'var(--ocre)', fontWeight: 'bold'}}>{l.value}</span>
               </div>
               <div style={{background: 'var(--sable)', borderRadius: '10px', height: '10px', overflow: 'hidden'}}>
@@ -156,7 +156,7 @@ export default function Statistiques() {
         </div>
 
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>👥 Par type de personne</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸ‘¥ Par type de personne</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={stats.typeData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -169,7 +169,7 @@ export default function Statistiques() {
         </div>
 
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>⚥ Répartition par sexe</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>âš¥ RÃ©partition par sexe</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie data={stats.sexeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
@@ -182,7 +182,7 @@ export default function Statistiques() {
         </div>
 
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🎭 Permissions accordées</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸŽ­ Permissions accordÃ©es</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={stats.permissions} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />

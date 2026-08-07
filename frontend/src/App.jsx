@@ -19,7 +19,7 @@ function App() {
     };
     window.addEventListener('beforeinstallprompt', handler);
     
-    // Vérifier si déjà installée
+    // VÃ©rifier si dÃ©jÃ  installÃ©e
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
     }
@@ -62,34 +62,34 @@ function App() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <h1>ðŸŽµ HWENDO</h1>
+          <h1>Ã°Å¸Å½Âµ HWENDO</h1>
           <p>Mission 2026</p>
           <p style={{fontSize: '9px', marginTop: '5px', opacity: 0.6}}>Patrimoine Sonore</p>
         </div>
         <ul className="sidebar-menu">
           <li>
             <button className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}>
-              <span className="icon">ðŸ“Š</span> Tableau de bord
+              <span className="icon">Ã°Å¸â€œÅ </span> Tableau de bord
             </button>
           </li>
           <li>
             <button className={view === 'stats' ? 'active' : ''} onClick={() => setView('stats')}>
-              <span className="icon">ðŸ“Š</span> Statistiques
+              <span className="icon">Ã°Å¸â€œÅ </span> Statistiques
             </button>
           </li>
           <li>
             <button className={view === 'form' ? 'active' : ''} onClick={() => setView('form')}>
-              <span className="icon">ðŸ“</span> Nouveau dÃ©tenteur
+              <span className="icon">Ã°Å¸â€œÂ</span> Nouveau dÃƒÂ©tenteur
             </button>
           </li>
           <li>
             <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
-              <span className="icon">ðŸ‘¥</span> DÃ©tenteurs ({stats.total})
+              <span className="icon">Ã°Å¸â€˜Â¥</span> DÃƒÂ©tenteurs ({stats.total})
             </button>
           </li>
           <li style={{marginTop: '30px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)'}}>
             <button className={view === 'politique' ? 'active' : ''} onClick={() => setView('politique')}>
-              <span className="icon">ðŸ”’</span> ConfidentialitÃ©
+              <span className="icon">Ã°Å¸â€â€™</span> ConfidentialitÃƒÂ©
             </button>
           </li>
         </ul>
@@ -99,33 +99,33 @@ function App() {
         {view === 'dashboard' && (
           <>
             <div className="page-header">
-              <h2>ðŸ“Š Tableau de bord</h2>
+              <h2>Ã°Å¸â€œÅ  Tableau de bord</h2>
               <p>Vue d'ensemble de la mission de collecte patrimoniale</p>
             </div>
             <div className="dashboard-stats">
               <div className="stat-card">
-                <div className="stat-icon">ðŸ‘¥</div>
+                <div className="stat-icon">Ã°Å¸â€˜Â¥</div>
                 <div className="stat-value">{stats.total}</div>
-                <div className="stat-label">DÃ©tenteurs enregistrÃ©s</div>
+                <div className="stat-label">DÃƒÂ©tenteurs enregistrÃƒÂ©s</div>
               </div>
               <div className="stat-card">
-                <div className="stat-icon">âœï¸</div>
+                <div className="stat-icon">Ã¢Å“ÂÃ¯Â¸Â</div>
                 <div className="stat-value">{stats.signes}</div>
-                <div className="stat-label">Consentements signÃ©s</div>
+                <div className="stat-label">Consentements signÃƒÂ©s</div>
               </div>
               <div className="stat-card">
-                <div className="stat-icon">ðŸ“¸</div>
+                <div className="stat-icon">Ã°Å¸â€œÂ¸</div>
                 <div className="stat-value">{stats.photos}</div>
-                <div className="stat-label">Photos capturÃ©es</div>
+                <div className="stat-label">Photos capturÃƒÂ©es</div>
               </div>
               <div className="stat-card">
-                <div className="stat-icon">ðŸŽ¯</div>
+                <div className="stat-icon">Ã°Å¸Å½Â¯</div>
                 <div className="stat-value">{stats.total > 0 ? Math.round((stats.signes / stats.total) * 100) : 0}%</div>
                 <div className="stat-label">Taux de signature</div>
               </div>
             </div>
             <div style={{background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-              <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸŽµ Bienvenue dans HWENDO 2026</h3>
+              <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>Ã°Å¸Å½Âµ Bienvenue dans HWENDO 2026</h3>
               <p style={{color: 'var(--gris)', lineHeight: '1.6'}}>
                 Cette plateforme vous accompagne dans votre mission de sauvegarde du patrimoine musical 
                 du royaume Hwendo au Palais Royal DADA DA AGBO HOUNON HOUNAN.
@@ -134,10 +134,10 @@ function App() {
                 <strong>Commencez par :</strong>
               </p>
               <ul style={{color: 'var(--gris)', lineHeight: '1.8', marginLeft: '20px'}}>
-                <li>ðŸ“ CrÃ©er un nouveau dÃ©tenteur</li>
-                <li>ðŸ“¸ Capturer des photos et mÃ©dias</li>
-                <li>âœï¸ Obtenir le consentement signÃ©</li>
-                <li>ðŸ“¥ TÃ©lÃ©charger le PDF Ã  remettre</li>
+                <li>Ã°Å¸â€œÂ CrÃƒÂ©er un nouveau dÃƒÂ©tenteur</li>
+                <li>Ã°Å¸â€œÂ¸ Capturer des photos et mÃƒÂ©dias</li>
+                <li>Ã¢Å“ÂÃ¯Â¸Â Obtenir le consentement signÃƒÂ©</li>
+                <li>Ã°Å¸â€œÂ¥ TÃƒÂ©lÃƒÂ©charger le PDF ÃƒÂ  remettre</li>
               </ul>
             </div>
           </>
@@ -145,8 +145,8 @@ function App() {
         {view === 'form' && (
           <>
             <div className="page-header">
-              <h2>ðŸ“ Nouveau dÃ©tenteur</h2>
-              <p>Enregistrer un nouveau dÃ©tenteur de savoirs traditionnels</p>
+              <h2>Ã°Å¸â€œÂ Nouveau dÃƒÂ©tenteur</h2>
+              <p>Enregistrer un nouveau dÃƒÂ©tenteur de savoirs traditionnels</p>
             </div>
             <DetenteurForm onSaved={() => { loadStats(); setView('list'); }} />
           </>
@@ -154,8 +154,8 @@ function App() {
         {view === 'list' && (
           <>
             <div className="page-header">
-              <h2>ðŸ‘¥ DÃ©tenteurs enregistrÃ©s</h2>
-              <p>Liste complÃ¨te des personnes ayant participÃ© Ã  la mission</p>
+              <h2>Ã°Å¸â€˜Â¥ DÃƒÂ©tenteurs enregistrÃƒÂ©s</h2>
+              <p>Liste complÃƒÂ¨te des personnes ayant participÃƒÂ© ÃƒÂ  la mission</p>
             </div>
             <DetenteurList />
           </>
@@ -163,8 +163,8 @@ function App() {
         {view === 'stats' && (
           <>
             <div className="page-header">
-              <h2>ðŸ“Š Statistiques de l'Ã©vÃ©nement</h2>
-              <p>Analyse en temps rÃ©el de la mission de collecte</p>
+              <h2>Ã°Å¸â€œÅ  Statistiques de l'ÃƒÂ©vÃƒÂ©nement</h2>
+              <p>Analyse en temps rÃƒÂ©el de la mission de collecte</p>
             </div>
             <Statistiques />
           </>
@@ -172,8 +172,8 @@ function App() {
         {view === 'politique' && (
           <>
             <div className="page-header">
-              <h2>ðŸ”’ Politique de confidentialitÃ©</h2>
-              <p>Engagement de protection des donnÃ©es et des savoirs traditionnels</p>
+              <h2>Ã°Å¸â€â€™ Politique de confidentialitÃƒÂ©</h2>
+              <p>Engagement de protection des donnÃƒÂ©es et des savoirs traditionnels</p>
             </div>
             <PolitiqueConfidentialite />
           </>
