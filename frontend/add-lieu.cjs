@@ -1,0 +1,429 @@
+﻿const fs = require('fs');
+
+// 1. Mettre à jour DetenteurForm avec les nouveaux champs
+fs.writeFileSync('src/components/DetenteurForm.jsx', `import { useState, useRef, useMemo, useEffect } from 'react';
+import { db } from '../db/localDB';
+import { api } from '../services/api';
+import SignatureCanvas from 'react-signature-canvas';
+import MediaCapture from './MediaCapture';
+
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+export default function DetenteurForm({ onSaved }) {
+  const tempId = useMemo(() => 'temp_' + Date.now(), []);
+  
+  const [form, setForm] = useState({ 
+    // 🆕 Nouveaux champs : type et lieu de signature
+    typePersonne: 'Détenteur',
+    lieuSignature: 'OUIDAH',
+    evenement: '',
+    
+    nomComplet: '', village: '', sexe: 'M', age: '',
+    surnomRituel: '', fonctionPalais: '', telephone: '', langue: 'Fon',
+    peutParler: false, peutChanter: false, peutEtreFilme: false,
+    peutFilmer: false, preterInstrument: false, montrerLieuSacre: false,
+    anonymiser: false, nomTraditionnelJamaisEcrit: false,
+    coordonneesGPS: '', notes: ''
+  });
+  const [msg, setMsg] = useState('');
+  const sigCanvas = useRef(null);
+
+  const capturerGPS = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setForm({...form, coordonneesGPS: pos.coords.latitude + ',' + pos.coords.longitude});
+          setMsg('📍 Position GPS capturée !');
+        },
+        (err) => setMsg('❌ GPS refusé')
+      );
+    }
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setMsg('⏳ Sauvegarde en cours...');
+    
+    const signature = sigCanvas.current && !sigCanvas.current.isEmpty() 
+      ? sigCanvas.current.toDataURL('image/png') 
+      : null;
+    
+    const data = { ...form, age: form.age ? parseInt(form.age) : null };
+    const localId = await db.detenteurs.add({ ...data, signature, syncStatus: 'pending' });
+    
+    const files = await db.files.where('detenteurId').equals(tempId).toArray();
+    const photos = [];
+    for (const file of files) {
+      if (file.type === 'photo' && file.blob) {
+        try {
+          const base64 = await blobToBase64(file.blob);
+          photos.push({ name: file.name, mimeType: file.mimeType, data: base64 });
+          await db.files.update(file.id, { detenteurId: localId });
+        } catch (err) { console.error(err); }
+      }
+    }
+    
+    setMsg('✅ Sauvegardé localement ! Envoi à Google Drive...');
+    
+    try {
+      const saved = await api.createDetenteur(data);
+      await db.detenteurs.update(localId, { id: saved.id, syncStatus: 'synced' });
+    } catch (err) { console.error(err); }
+    
+    try {
+      const docResult = await api.generateConsentementDoc(data, signature, photos);
+      if (docResult.success) {
+        if (docResult.docUrl) await db.detenteurs.update(localId, { docUrl: docResult.docUrl });
+        setMsg('✅ Document de consentement généré !');
+      }
+    } catch (err) {
+      setMsg('⚠️ Détenteur sauvegardé, doc en attente');
+    }
+    
+    setForm({ 
+      typePersonne: 'Détenteur',
+      lieuSignature: 'OUIDAH',
+      evenement: '',
+      nomComplet: '', village: '', sexe: 'M', age: '',
+      surnomRituel: '', fonctionPalais: '', telephone: '', langue: 'Fon',
+      peutParler: false, peutChanter: false, peutEtreFilme: false,
+      peutFilmer: false, preterInstrument: false, montrerLieuSacre: false,
+      anonymiser: false, nomTraditionnelJamaisEcrit: false,
+      coordonneesGPS: '', notes: ''
+    });
+    sigCanvas.current?.clear();
+    window.dispatchEvent(new Event('detenteur-added'));
+    if (onSaved) setTimeout(onSaved, 1500);
+  };
+
+  return (
+    <form onSubmit={submit} className="hwendo-form">
+      <h2>📝 Nouveau participant</h2>
+      
+      {/* 🆕 NOUVELLE SECTION : Contexte de signature */}
+      <h3>📋 Contexte de la signature</h3>
+      <div className="form-grid">
+        <select value={form.typePersonne} onChange={e=>setForm({...form, typePersonne:e.target.value})}>
+          <option value="Détenteur">🎵 Détenteur de savoirs</option>
+          <option value="Invité">🤝 Invité</option>
+          <option value="Visiteur">🚶 Visiteur</option>
+          <option value="Spectateur">👁️ Spectateur</option>
+        </select>
+        <input placeholder="Lieu de signature *" value={form.lieuSignature} onChange={e=>setForm({...form, lieuSignature:e.target.value})} required />
+      </div>
+      <input placeholder="Événement / Occasion (ex: Festival, Visite royale)" value={form.evenement} onChange={e=>setForm({...form, evenement:e.target.value})} />
+      
+      <h3>👤 Identité</h3>
+      <input placeholder="Nom complet *" value={form.nomComplet} onChange={e=>setForm({...form, nomComplet:e.target.value})} required />
+      <input placeholder="Surnom rituel" value={form.surnomRituel} onChange={e=>setForm({...form, surnomRituel:e.target.value})} />
+      <div className="form-grid">
+        <input type="number" placeholder="Âge" value={form.age} onChange={e=>setForm({...form, age:e.target.value})} />
+        <select value={form.sexe} onChange={e=>setForm({...form, sexe:e.target.value})}>
+          <option value="M">Masculin</option><option value="F">Féminin</option>
+        </select>
+      </div>
+      <input placeholder="Village d'origine *" value={form.village} onChange={e=>setForm({...form, village:e.target.value})} required />
+      <input placeholder="Fonction au palais" value={form.fonctionPalais} onChange={e=>setForm({...form, fonctionPalais:e.target.value})} />
+      <div className="form-grid">
+        <input placeholder="Téléphone" value={form.telephone} onChange={e=>setForm({...form, telephone:e.target.value})} />
+        <select value={form.langue} onChange={e=>setForm({...form, langue:e.target.value})}>
+          <option value="Fon">Fon</option><option value="Goun">Goun</option>
+          <option value="Mina">Mina</option><option value="Français">Français</option>
+        </select>
+      </div>
+
+      <h3>🎭 Permissions</h3>
+      <div className="checkbox-group">
+        {[
+          ['peutParler', '🎤 Être interviewé(e)'],
+          ['peutChanter', '🎵 Chanter / Jouer'],
+          ['peutEtreFilme', '🎥 Être filmé(e)'],
+          ['peutFilmer', '📸 Être photographié(e)'],
+          ['preterInstrument', '🪘 Prêter un instrument'],
+          ['montrerLieuSacre', '🏛️ Montrer un lieu sacré']
+        ].map(([key, label]) => (
+          <label key={key}>
+            <input type="checkbox" checked={form[key]} onChange={e=>setForm({...form, [key]:e.target.checked})} />
+            {label}
+          </label>
+        ))}
+      </div>
+
+      <h3>🔒 Spécificités Vodun</h3>
+      <div className="checkbox-group">
+        <label>
+          <input type="checkbox" checked={form.anonymiser} onChange={e=>setForm({...form, anonymiser:e.target.checked})} />
+          🕶️ Anonymiser mon nom
+        </label>
+        <label>
+          <input type="checkbox" checked={form.nomTraditionnelJamaisEcrit} onChange={e=>setForm({...form, nomTraditionnelJamaisEcrit:e.target.checked})} />
+          🤐 Nom traditionnel jamais écrit
+        </label>
+      </div>
+
+      <h3>📍 Localisation</h3>
+      <button type="button" onClick={capturerGPS} className="btn-gps">
+        📍 Capturer GPS
+      </button>
+      {form.coordonneesGPS && <p style={{fontSize:'12px', color:'var(--gris)', marginBottom: '10px'}}>📍 {form.coordonneesGPS}</p>}
+
+      <h3>📝 Notes terrain</h3>
+      <textarea placeholder="Observations, contexte..." value={form.notes} onChange={e=>setForm({...form, notes:e.target.value})} />
+
+      <h3>✍️ Signature manuscrite</h3>
+      <div className="signature-box">
+        <SignatureCanvas 
+          ref={sigCanvas}
+          penColor="#2C1810"
+          canvasProps={{style:{width:'100%', height:'150px'}}}
+        />
+      </div>
+      <button type="button" onClick={()=>sigCanvas.current?.clear()} className="btn-clear">
+        Effacer
+      </button>
+
+      <MediaCapture tempDetenteurId={tempId} />
+
+      <button type="submit" className="btn-primary">
+        ✅ Enregistrer le participant
+      </button>
+      {msg && <div className="message">{msg}</div>}
+    </form>
+  );
+}
+`);
+
+// 2. Mettre à jour PDFGenerator avec les nouveaux champs
+fs.writeFileSync('src/components/PDFGenerator.jsx', `import { useState, useEffect } from 'react';
+import html2pdf from 'html2pdf.js';
+import { db } from '../db/localDB';
+
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+export default function PDFGenerator({ detenteurId }) {
+  const [loading, setLoading] = useState(false);
+  const [detenteur, setDetenteur] = useState(null);
+  const [photos, setPhotos] = useState([]);
+
+  useEffect(() => { loadData(); }, [detenteurId]);
+
+  const loadData = async () => {
+    try {
+      const d = await db.detenteurs.get(detenteurId);
+      setDetenteur(d);
+      const allFiles = await db.files.where('detenteurId').equals(detenteurId).toArray();
+      const photoFiles = allFiles.filter(f => f.type === 'photo' && f.blob);
+      const photoBase64 = [];
+      for (const f of photoFiles) {
+        try {
+          const base64 = await blobToBase64(f.blob);
+          photoBase64.push(base64);
+        } catch (e) { console.error(e); }
+      }
+      setPhotos(photoBase64);
+    } catch (e) { console.error(e); }
+  };
+
+  const generatePDF = async () => {
+    if (!detenteur) return;
+    setLoading(true);
+
+    // Valeurs avec fallback pour compatibilité
+    const lieuSignature = detenteur.lieuSignature || detenteur.village || 'OUIDAH';
+    const typePersonne = detenteur.typePersonne || 'Détenteur';
+    const evenement = detenteur.evenement || '';
+
+    // Icône selon le type
+    const typeIcons = {
+      'Détenteur': '🎵',
+      'Invité': '🤝',
+      'Visiteur': '🚶',
+      'Spectateur': '👁️'
+    };
+    const typeIcon = typeIcons[typePersonne] || '👤';
+
+    const content = document.createElement('div');
+    content.innerHTML = \`
+      <div style="font-family: 'Georgia', serif; color: #2C1810; background: white; padding: 20px; font-size: 10px; line-height: 1.4; width: 100%;">
+        
+        <!-- EN-TÊTE -->
+        <div style="text-align: center; border-bottom: 3px double #DAA520; padding-bottom: 10px; margin-bottom: 15px;">
+          <h1 style="color: #2C1810; margin: 0; font-size: 20px; letter-spacing: 3px;">🎵 HWENDO 2026</h1>
+          <h2 style="color: #C65D2C; margin: 4px 0; font-size: 14px;">CONSENTEMENT ÉCLAIRÉ</h2>
+          \${evenement 
+            ? \`<p style="margin: 2px 0; font-style: italic; color: #C65D2C; font-size: 11px; font-weight: bold;">📋 \${evenement}</p>\`
+            : ''}
+          <p style="margin: 2px 0; font-style: italic; color: #6B5D54; font-size: 9px;">
+            Mission de sauvegarde du patrimoine musical • Palais Royal DADA DA AGBO HOUNON HOUNAN
+          </p>
+        </div>
+        
+        <!-- CORPS : 2 COLONNES -->
+        <div style="display: flex; gap: 20px; margin-bottom: 15px; width: 100%;">
+          
+          <!-- COLONNE GAUCHE -->
+          <div style="flex: 1; min-width: 0;">
+            <h3 style="color: #C65D2C; border-bottom: 1px solid #DAA520; padding-bottom: 3px; font-size: 12px; margin: 0 0 8px 0;">
+              \${typeIcon} IDENTITÉ DU SIGNATAIRE
+            </h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; width: 32%; font-size: 10px;">Type :</td><td style="padding: 3px 5px; font-size: 10px;"><strong>\${typePersonne}</strong></td></tr>
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Nom complet :</td><td style="padding: 3px 5px; font-size: 10px;">\${detenteur.nomComplet}</td></tr>
+              \${detenteur.surnomRituel ? \`<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Surnom rituel :</td><td style="padding: 3px 5px; font-size: 10px; font-style: italic;">\${detenteur.surnomRituel}</td></tr>\` : ''}
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Âge / Sexe :</td><td style="padding: 3px 5px; font-size: 10px;">\${detenteur.age || '?'} ans • \${detenteur.sexe === 'M' ? 'Masculin' : 'Féminin'}</td></tr>
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Village d'origine :</td><td style="padding: 3px 5px; font-size: 10px;">\${detenteur.village}</td></tr>
+              \${detenteur.fonctionPalais ? \`<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Fonction :</td><td style="padding: 3px 5px; font-size: 10px;">\${detenteur.fonctionPalais}</td></tr>\` : ''}
+              \${detenteur.telephone ? \`<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Téléphone :</td><td style="padding: 3px 5px; font-size: 10px;">\${detenteur.telephone}</td></tr>\` : ''}
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Langue :</td><td style="padding: 3px 5px; font-size: 10px;">\${detenteur.langue || 'Non renseigné'}</td></tr>
+            </table>
+            
+            <h3 style="color: #C65D2C; border-bottom: 1px solid #DAA520; padding-bottom: 3px; font-size: 12px; margin: 0 0 8px 0;">
+              🎭 PERMISSIONS ACCORDÉES
+            </h3>
+            <table style="width: 100%; margin-bottom: 12px; font-size: 10px;">
+              <tr>
+                <td style="padding: 3px;">\${detenteur.peutParler ? '☑' : '☐'} Être interviewé(e)</td>
+                <td style="padding: 3px;">\${detenteur.peutFilmer ? '☑' : '☐'} Être photographié(e)</td>
+              </tr>
+              <tr>
+                <td style="padding: 3px;">\${detenteur.peutChanter ? '☑' : '☐'} Chanter / Jouer</td>
+                <td style="padding: 3px;">\${detenteur.preterInstrument ? '☑' : '☐'} Prêter un instrument</td>
+              </tr>
+              <tr>
+                <td style="padding: 3px;">\${detenteur.peutEtreFilme ? '☑' : '☐'} Être filmé(e)</td>
+                <td style="padding: 3px;">\${detenteur.montrerLieuSacre ? '☑' : '☐'} Montrer un lieu sacré</td>
+              </tr>
+            </table>
+            
+            <h3 style="color: #C65D2C; border-bottom: 1px solid #DAA520; padding-bottom: 3px; font-size: 12px; margin: 0 0 8px 0;">
+              🔒 SPÉCIFICITÉS VODUN
+            </h3>
+            <div style="font-size: 10px; margin-bottom: 12px;">
+              <p style="margin: 3px 0;">\${detenteur.anonymiser ? '☑' : '☐'} Nom anonymisé dans les publications</p>
+              <p style="margin: 3px 0;">\${detenteur.nomTraditionnelJamaisEcrit ? '☑' : '☐'} Nom traditionnel jamais écrit</p>
+            </div>
+          </div>
+          
+          <!-- COLONNE DROITE : Photo + Signature -->
+          <div style="width: 35%; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+            <div style="width: 160px; height: 160px; overflow: hidden; border: 3px solid #C65D2C; border-radius: 8px; background: #FDF5E6;">
+              \${photos.length > 0 
+                ? \`<img src="\${photos[0]}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />\`
+                : '<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #6B5D54; font-size: 11px;">📷<br/>Photo non disponible</div>'}
+            </div>
+            <p style="margin: 0; font-size: 8px; color: #6B5D54; text-align: center; font-style: italic;">Photo du signataire</p>
+            
+            <div style="width: 100%; text-align: center; margin-top: auto;">
+              <p style="margin: 0 0 8px 0; font-weight: bold; color: #8B4513; font-size: 10px;">✍️ SIGNATURE :</p>
+              \${detenteur.signature 
+                ? \`<img src="\${detenteur.signature}" style="max-width: 100%; max-height: 60px; display: inline-block;" />\` 
+                : '<div style="border-bottom: 1px solid #2C1810; height: 50px;"></div>'}
+            </div>
+          </div>
+        </div>
+        
+        <!-- DÉCLARATION -->
+        <div style="background: #FDF5E6; padding: 10px 15px; margin-bottom: 15px; border-left: 4px solid #C65D2C; border-radius: 4px;">
+          <p style="margin: 0; font-size: 10px; line-height: 1.6;">
+            Je soussigné(e) confirme avoir été informé(e) de l'objet de cette mission menée par 
+            <strong>Johnson Mario Apanh (OBG International Bénin)</strong> et donne mon consentement libre et éclairé 
+            pour les permissions cochées ci-dessus.
+          </p>
+        </div>
+        
+        <!-- DATE ET SIGNATURES -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; margin-bottom: 15px;">
+          <div style="font-size: 10px;">
+            <p style="margin: 0;"><strong>Fait à \${lieuSignature.toUpperCase()}, le \${new Date().toLocaleDateString('fr-FR')}</strong></p>
+            \${detenteur.village && lieuSignature.toUpperCase() !== detenteur.village.toUpperCase() 
+              ? \`<p style="margin: 2px 0; font-size: 8px; color: #6B5D54; font-style: italic;">Signataire originaire de \${detenteur.village}</p>\`
+              : ''}
+          </div>
+          <div style="text-align: right; font-size: 10px;">
+            <p style="margin: 0; font-weight: bold; color: #8B4513;">L'ENQUÊTEUR :</p>
+            <p style="margin: 25px 0 0 0; font-style: italic;">Johnson Mario Apanh</p>
+            <p style="margin: 0; font-size: 9px; color: #6B5D54;">OBG International Bénin</p>
+          </div>
+        </div>
+        
+        <!-- COPYRIGHT -->
+        <div style="text-align: center; margin-top: 20px; padding-top: 10px; border-top: 2px double #DAA520; font-size: 8px; color: #6B5D54;">
+          <p style="margin: 0; font-weight: bold;">Tout droit réservé OBG International Bénin</p>
+          <p style="margin: 2px 0 0 0;">HWENDO 2026 • Mission de sauvegarde du patrimoine musical du royaume Hwendo</p>
+        </div>
+      </div>
+    \`;
+    
+    document.body.appendChild(content);
+    
+    const options = {
+      margin: [10, 10, 10, 10],
+      filename: 'CONSENTEMENT_' + detenteur.nomComplet.replace(/\\s+/g, '_') + '.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        allowTaint: true,
+        windowWidth: 900
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+    
+    try {
+      await html2pdf().from(content).set(options).save();
+    } catch (e) {
+      alert('Erreur PDF: ' + e.message);
+    }
+    document.body.removeChild(content);
+    setLoading(false);
+  };
+
+  return (
+    <button 
+      onClick={generatePDF}
+      disabled={loading}
+      className="btn-action pdf"
+    >
+      {loading ? '⏳ Génération...' : '📥 Télécharger PDF'}
+    </button>
+  );
+}
+`);
+
+// 3. Mettre à jour DetenteurList pour afficher le type
+const listContent = fs.readFileSync('src/components/DetenteurList.jsx', 'utf8');
+let newListContent = listContent.replace(
+  `<div className="detenteur-card-header">
+              <h3>{d.nomComplet}</h3>
+              <div className="village">📍 {d.village}</div>
+              {d.syncStatus === 'synced' && (
+                <span className="sync-badge">✅ SYNC</span>
+              )}
+            </div>`,
+  `<div className="detenteur-card-header">
+              <h3>{d.typePersonne === 'Invité' ? '🤝' : d.typePersonne === 'Visiteur' ? '🚶' : d.typePersonne === 'Spectateur' ? '👁️' : '🎵'} {d.nomComplet}</h3>
+              <div className="village">📍 Originaire de {d.village}</div>
+              {d.lieuSignature && <div style={{fontSize: '11px', opacity: 0.9, marginTop: '3px'}}>✍️ Signé à {d.lieuSignature}</div>}
+              {d.syncStatus === 'synced' && (
+                <span className="sync-badge">✅ SYNC</span>
+              )}
+            </div>`
+);
+fs.writeFileSync('src/components/DetenteurList.jsx', newListContent);
+
+console.log('🎉 Lieu de signature + Type de personne ajoutés !');

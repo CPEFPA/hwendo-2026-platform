@@ -1,0 +1,42 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>HWENDO 2026</title>
+</head>
+<body>
+<script>
+const canvas = document.createElement('canvas');
+canvas.width = 512;
+canvas.height = 512;
+const ctx = canvas.getContext('2d');
+
+// Fond dégradé
+const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+gradient.addColorStop(0, '#C65D2C');
+gradient.addColorStop(1, '#8B4513');
+ctx.fillStyle = gradient;
+ctx.fillRect(0, 0, 512, 512);
+
+// Lettre H
+ctx.fillStyle = '#F4C430';
+ctx.font = 'bold 200px Georgia';
+ctx.textAlign = 'center';
+ctx.fillText('H', 256, 320);
+
+// Texte
+ctx.fillStyle = 'white';
+ctx.font = '60px Arial';
+ctx.fillText('HWENDO 2026', 256, 440);
+
+// Convertir en PNG et télécharger
+canvas.toBlob((blob) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'icon-512.png';
+  a.click();
+});
+</script>
+</body>
+</html>

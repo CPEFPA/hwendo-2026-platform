@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Mission {
+  id         String      @id @default(uuid())
+  nom        String      @default("HWENDO_2026_MISSION")
+  dateDebut  DateTime    @default(now())
+  statut     String      @default("active")
+  detenteurs Detenteur[]
+  createdAt  DateTime    @default(now())
+}
+
+model Detenteur {
+  id                  String   @id @default(uuid())
+  reference           String   @unique @default(uuid())
+  nomComplet          String
+  village             String
+  sexe                String
+  age                 Int?
+  surnomRituel        String?
+  fonctionPalais      String?
+  telephone           String?
+  langue              String?
+  consentementSigne   Boolean  @default(false)
+  lienDocConsentement String?
+  notes               String?
+  coordonneesGPS      String?
+  missionId           String?
+  mission             Mission?  @relation(fields: [missionId], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([village])
+  @@index([consentementSigne])
+}
