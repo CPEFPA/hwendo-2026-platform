@@ -17,8 +17,8 @@ export default function DetenteurForm({ onSaved }) {
   const tempId = useMemo(() => 'temp_' + Date.now(), []);
   
   const [form, setForm] = useState({ 
-    // ðŸ†• Nouveaux champs : type et lieu de signature
-    typePersonne: 'DÃ©tenteur',
+    // 🏆• Nouveaux champs : type et lieu de signature
+    typePersonne: 'Détenteur',
     lieuSignature: 'OUIDAH',
     evenement: '',
     
@@ -37,9 +37,9 @@ export default function DetenteurForm({ onSaved }) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setForm({...form, coordonneesGPS: pos.coords.latitude + ',' + pos.coords.longitude});
-          setMsg('ðŸ“ Position GPS capturÃ©e !');
+          setMsg('📝 Position GPS capturée !');
         },
-        (err) => setMsg('âŒ GPS refusÃ©')
+        (err) => setMsg('âŒ GPS refusé')
       );
     }
   };
@@ -67,7 +67,7 @@ export default function DetenteurForm({ onSaved }) {
       }
     }
     
-    setMsg('âœ… SauvegardÃ© localement ! Envoi Ã  Google Drive...');
+    setMsg('✍️… Sauvegardé localement ! Envoi À  Google Drive...');
     
     try {
       const saved = await api.createDetenteur(data);
@@ -78,14 +78,14 @@ export default function DetenteurForm({ onSaved }) {
       const docResult = await api.generateConsentementDoc(data, signature, photos);
       if (docResult.success) {
         if (docResult.docUrl) await db.detenteurs.update(localId, { docUrl: docResult.docUrl });
-        setMsg('âœ… Document de consentement gÃ©nÃ©rÃ© !');
+        setMsg('✍️… Document de consentement généré !');
       }
     } catch (err) {
-      setMsg('âš ï¸ DÃ©tenteur sauvegardÃ©, doc en attente');
+      setMsg('âš ï¸ Détenteur sauvegardé, doc en attente');
     }
     
     setForm({ 
-      typePersonne: 'DÃ©tenteur',
+      typePersonne: 'Détenteur',
       lieuSignature: 'OUIDAH',
       evenement: '',
       nomComplet: '', village: '', sexe: 'M', age: '',
@@ -102,49 +102,49 @@ export default function DetenteurForm({ onSaved }) {
 
   return (
     <form onSubmit={submit} className="hwendo-form">
-      <h2>ðŸ“ Nouveau participant</h2>
+      <h2>📝 Nouveau participant</h2>
       
-      {/* ðŸ†• NOUVELLE SECTION : Contexte de signature */}
-      <h3>ðŸ“‹ Contexte de la signature</h3>
+      {/* 🏆• NOUVELLE SECTION : Contexte de signature */}
+      <h3>📝‹ Contexte de la signature</h3>
       <div className="form-grid">
         <select value={form.typePersonne} onChange={e=>setForm({...form, typePersonne:e.target.value})}>
-          <option value="DÃ©tenteur">ðŸŽµ DÃ©tenteur de savoirs</option>
-          <option value="InvitÃ©">ðŸ¤ InvitÃ©</option>
+          <option value="Détenteur">🎵 Détenteur de savoirs</option>
+          <option value="Invité">🤐 Invité</option>
           <option value="Visiteur">ðŸš¶ Visiteur</option>
           <option value="Spectateur">ðŸ‘ï¸ Spectateur</option>
         </select>
         <input placeholder="Lieu de signature *" value={form.lieuSignature} onChange={e=>setForm({...form, lieuSignature:e.target.value})} required />
       </div>
-      <input placeholder="Ã‰vÃ©nement / Occasion (ex: Festival, Visite royale)" value={form.evenement} onChange={e=>setForm({...form, evenement:e.target.value})} />
+      <input placeholder="Événement / Occasion (ex: Festival, Visite royale)" value={form.evenement} onChange={e=>setForm({...form, evenement:e.target.value})} />
       
-      <h3>ðŸ‘¤ IdentitÃ©</h3>
+      <h3>ðŸ‘¤ Identité</h3>
       <input placeholder="Nom complet *" value={form.nomComplet} onChange={e=>setForm({...form, nomComplet:e.target.value})} required />
       <input placeholder="Surnom rituel" value={form.surnomRituel} onChange={e=>setForm({...form, surnomRituel:e.target.value})} />
       <div className="form-grid">
-        <input type="number" placeholder="Ã‚ge" value={form.age} onChange={e=>setForm({...form, age:e.target.value})} />
+        <input type="number" placeholder="À‚ge" value={form.age} onChange={e=>setForm({...form, age:e.target.value})} />
         <select value={form.sexe} onChange={e=>setForm({...form, sexe:e.target.value})}>
-          <option value="M">Masculin</option><option value="F">FÃ©minin</option>
+          <option value="M">Masculin</option><option value="F">Féminin</option>
         </select>
       </div>
       <input placeholder="Village d'origine *" value={form.village} onChange={e=>setForm({...form, village:e.target.value})} required />
       <input placeholder="Fonction au palais" value={form.fonctionPalais} onChange={e=>setForm({...form, fonctionPalais:e.target.value})} />
       <div className="form-grid">
-        <input placeholder="TÃ©lÃ©phone" value={form.telephone} onChange={e=>setForm({...form, telephone:e.target.value})} />
+        <input placeholder="Téléphone" value={form.telephone} onChange={e=>setForm({...form, telephone:e.target.value})} />
         <select value={form.langue} onChange={e=>setForm({...form, langue:e.target.value})}>
           <option value="Fon">Fon</option><option value="Goun">Goun</option>
-          <option value="Mina">Mina</option><option value="FranÃ§ais">FranÃ§ais</option>
+          <option value="Mina">Mina</option><option value="Français">Français</option>
         </select>
       </div>
 
-      <h3>ðŸŽ­ Permissions</h3>
+      <h3>🎭 Permissions</h3>
       <div className="checkbox-group">
         {[
-          ['peutParler', 'ðŸŽ¤ ÃŠtre interviewÃ©(e)'],
-          ['peutChanter', 'ðŸŽµ Chanter / Jouer'],
-          ['peutEtreFilme', 'ðŸŽ¥ ÃŠtre filmÃ©(e)'],
-          ['peutFilmer', 'ðŸ“¸ ÃŠtre photographiÃ©(e)'],
-          ['preterInstrument', 'ðŸª˜ PrÃªter un instrument'],
-          ['montrerLieuSacre', 'ðŸ›ï¸ Montrer un lieu sacrÃ©']
+          ['peutParler', '🎤 ÀŠtre interviewé(e)'],
+          ['peutChanter', '🎵 Chanter / Jouer'],
+          ['peutEtreFilme', '🎥 ÀŠtre filmé(e)'],
+          ['peutFilmer', '📸 ÀŠtre photographié(e)'],
+          ['preterInstrument', '🪘 Prêter un instrument'],
+          ['montrerLieuSacre', 'ðŸ›ï¸ Montrer un lieu sacré']
         ].map(([key, label]) => (
           <label key={key}>
             <input type="checkbox" checked={form[key]} onChange={e=>setForm({...form, [key]:e.target.checked})} />
@@ -153,28 +153,28 @@ export default function DetenteurForm({ onSaved }) {
         ))}
       </div>
 
-      <h3>ðŸ”’ SpÃ©cificitÃ©s Vodun</h3>
+      <h3>🔒 Spécificités Vodun</h3>
       <div className="checkbox-group">
         <label>
           <input type="checkbox" checked={form.anonymiser} onChange={e=>setForm({...form, anonymiser:e.target.checked})} />
-          ðŸ•¶ï¸ Anonymiser mon nom
+          🕶️ Anonymiser mon nom
         </label>
         <label>
           <input type="checkbox" checked={form.nomTraditionnelJamaisEcrit} onChange={e=>setForm({...form, nomTraditionnelJamaisEcrit:e.target.checked})} />
-          ðŸ¤ Nom traditionnel jamais Ã©crit
+          🤐 Nom traditionnel jamais écrit
         </label>
       </div>
 
-      <h3>ðŸ“ Localisation</h3>
+      <h3>📝 Localisation</h3>
       <button type="button" onClick={capturerGPS} className="btn-gps">
-        ðŸ“ Capturer GPS
+        📝 Capturer GPS
       </button>
-      {form.coordonneesGPS && <p style={{fontSize:'12px', color:'var(--gris)', marginBottom: '10px'}}>ðŸ“ {form.coordonneesGPS}</p>}
+      {form.coordonneesGPS && <p style={{fontSize:'12px', color:'var(--gris)', marginBottom: '10px'}}>📝 {form.coordonneesGPS}</p>}
 
-      <h3>ðŸ“ Notes terrain</h3>
+      <h3>📝 Notes terrain</h3>
       <textarea placeholder="Observations, contexte..." value={form.notes} onChange={e=>setForm({...form, notes:e.target.value})} />
 
-      <h3>âœï¸ Signature manuscrite</h3>
+      <h3>✍️ï¸ Signature manuscrite</h3>
       <div className="signature-box">
         <SignatureCanvas 
           ref={sigCanvas}
@@ -189,7 +189,7 @@ export default function DetenteurForm({ onSaved }) {
       <MediaCapture tempDetenteurId={tempId} />
 
       <button type="submit" className="btn-primary">
-        âœ… Enregistrer le participant
+        ✍️… Enregistrer le participant
       </button>
       {msg && <div className="message">{msg}</div>}
     </form>

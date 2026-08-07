@@ -38,23 +38,23 @@ export default function MediaCapture({ tempDetenteurId }) {
         blob: file,
         createdAt: new Date().toISOString()
       });
-      setMsg('âœ… ' + type + ' sauvegardÃ© (' + (file.size / 1024).toFixed(1) + ' Ko)');
+      setMsg('✍️… ' + type + ' sauvegardé (' + (file.size / 1024).toFixed(1) + ' Ko)');
       loadFiles();
     } catch (err) { setMsg('âŒ Erreur: ' + err.message); }
   };
 
   return (
     <div className="media-capture">
-      <h3>ðŸŽ¬ Capture MÃ©dias</h3>
+      <h3>ðŸŽ¬ Capture Médias</h3>
       <div className="media-buttons">
         <button type="button" onClick={() => photoInput.current.click()} className="media-btn photo">
-          ðŸ“¸ Photo
+          📸 Photo
         </button>
         <button type="button" onClick={() => videoInput.current.click()} className="media-btn video">
-          ðŸŽ¥ VidÃ©o
+          🎥 Vidéo
         </button>
         <button type="button" onClick={() => audioInput.current.click()} className="media-btn audio">
-          ðŸŽ¤ Audio
+          🎤 Audio
         </button>
       </div>
 
@@ -72,7 +72,7 @@ export default function MediaCapture({ tempDetenteurId }) {
               {f.type === 'video' && urls[f.id] && <video controls><source src={urls[f.id]} type={f.mimeType} /></video>}
               {f.type === 'audio' && urls[f.id] && <audio controls><source src={urls[f.id]} type={f.mimeType} /></audio>}
               <div className="media-info">
-                {f.type === 'photo' ? 'ðŸ“¸' : f.type === 'video' ? 'ðŸŽ¥' : 'ðŸŽ¤'} {(f.size / 1024).toFixed(0)} Ko
+                {f.type === 'photo' ? '📸' : f.type === 'video' ? '🎥' : '🎤'} {(f.size / 1024).toFixed(0)} Ko
               </div>
             </div>
           ))}

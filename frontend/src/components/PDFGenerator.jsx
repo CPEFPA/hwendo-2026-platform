@@ -39,15 +39,15 @@ export default function PDFGenerator({ detenteurId }) {
     if (!detenteur) return;
     setLoading(true);
 
-    // Valeurs avec fallback pour compatibilitÃ©
+    // Valeurs avec fallback pour compatibilité
     const lieuSignature = detenteur.lieuSignature || detenteur.village || 'OUIDAH';
-    const typePersonne = detenteur.typePersonne || 'DÃ©tenteur';
+    const typePersonne = detenteur.typePersonne || 'Détenteur';
     const evenement = detenteur.evenement || '';
 
-    // IcÃ´ne selon le type
+    // Icône selon le type
     const typeIcons = {
-      'DÃ©tenteur': 'ðŸŽµ',
-      'InvitÃ©': 'ðŸ¤',
+      'Détenteur': '🎵',
+      'Invité': '🤐',
       'Visiteur': 'ðŸš¶',
       'Spectateur': 'ðŸ‘ï¸'
     };
@@ -57,15 +57,15 @@ export default function PDFGenerator({ detenteurId }) {
     content.innerHTML = `
       <div style="font-family: 'Georgia', serif; color: #2C1810; background: white; padding: 20px; font-size: 10px; line-height: 1.4; width: 100%;">
         
-        <!-- EN-TÃŠTE -->
+        <!-- EN-TÀŠTE -->
         <div style="text-align: center; border-bottom: 3px double #DAA520; padding-bottom: 10px; margin-bottom: 15px;">
-          <h1 style="color: #2C1810; margin: 0; font-size: 20px; letter-spacing: 3px;">ðŸŽµ HWENDO 2026</h1>
-          <h2 style="color: #C65D2C; margin: 4px 0; font-size: 14px;">CONSENTEMENT Ã‰CLAIRÃ‰</h2>
+          <h1 style="color: #2C1810; margin: 0; font-size: 20px; letter-spacing: 3px;">🎵 HWENDO 2026</h1>
+          <h2 style="color: #C65D2C; margin: 4px 0; font-size: 14px;">CONSENTEMENT ÉCLAIRÉ</h2>
           ${evenement 
-            ? `<p style="margin: 2px 0; font-style: italic; color: #C65D2C; font-size: 11px; font-weight: bold;">ðŸ“‹ ${evenement}</p>`
+            ? `<p style="margin: 2px 0; font-style: italic; color: #C65D2C; font-size: 11px; font-weight: bold;">📝‹ ${evenement}</p>`
             : ''}
           <p style="margin: 2px 0; font-style: italic; color: #6B5D54; font-size: 9px;">
-            Mission de sauvegarde du patrimoine musical â€¢ Palais Royal DADA DA AGBO HOUNON HOUNAN
+            Mission de sauvegarde du patrimoine musical "¢ Palais Royal DADA DA AGBO HOUNON HOUNAN
           </p>
         </div>
         
@@ -75,43 +75,43 @@ export default function PDFGenerator({ detenteurId }) {
           <!-- COLONNE GAUCHE -->
           <div style="flex: 1; min-width: 0;">
             <h3 style="color: #C65D2C; border-bottom: 1px solid #DAA520; padding-bottom: 3px; font-size: 12px; margin: 0 0 8px 0;">
-              ${typeIcon} IDENTITÃ‰ DU SIGNATAIRE
+              ${typeIcon} IDENTITÉ DU SIGNATAIRE
             </h3>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
               <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; width: 32%; font-size: 10px;">Type :</td><td style="padding: 3px 5px; font-size: 10px;"><strong>${typePersonne}</strong></td></tr>
               <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Nom complet :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.nomComplet}</td></tr>
               ${detenteur.surnomRituel ? `<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Surnom rituel :</td><td style="padding: 3px 5px; font-size: 10px; font-style: italic;">${detenteur.surnomRituel}</td></tr>` : ''}
-              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Ã‚ge / Sexe :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.age || '?'} ans â€¢ ${detenteur.sexe === 'M' ? 'Masculin' : 'FÃ©minin'}</td></tr>
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">À‚ge / Sexe :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.age || '?'} ans "¢ ${detenteur.sexe === 'M' ? 'Masculin' : 'Féminin'}</td></tr>
               <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Village d'origine :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.village}</td></tr>
               ${detenteur.fonctionPalais ? `<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Fonction :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.fonctionPalais}</td></tr>` : ''}
-              ${detenteur.telephone ? `<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">TÃ©lÃ©phone :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.telephone}</td></tr>` : ''}
-              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Langue :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.langue || 'Non renseignÃ©'}</td></tr>
+              ${detenteur.telephone ? `<tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Téléphone :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.telephone}</td></tr>` : ''}
+              <tr><td style="padding: 3px 5px; font-weight: bold; color: #8B4513; font-size: 10px;">Langue :</td><td style="padding: 3px 5px; font-size: 10px;">${detenteur.langue || 'Non renseigné'}</td></tr>
             </table>
             
             <h3 style="color: #C65D2C; border-bottom: 1px solid #DAA520; padding-bottom: 3px; font-size: 12px; margin: 0 0 8px 0;">
-              ðŸŽ­ PERMISSIONS ACCORDÃ‰ES
+              🎭 PERMISSIONS ACCORDÉES
             </h3>
             <table style="width: 100%; margin-bottom: 12px; font-size: 10px;">
               <tr>
-                <td style="padding: 3px;">${detenteur.peutParler ? 'â˜‘' : 'â˜'} ÃŠtre interviewÃ©(e)</td>
-                <td style="padding: 3px;">${detenteur.peutFilmer ? 'â˜‘' : 'â˜'} ÃŠtre photographiÃ©(e)</td>
+                <td style="padding: 3px;">${detenteur.peutParler ? 'â˜‘' : 'â˜'} ÀŠtre interviewé(e)</td>
+                <td style="padding: 3px;">${detenteur.peutFilmer ? 'â˜‘' : 'â˜'} ÀŠtre photographié(e)</td>
               </tr>
               <tr>
                 <td style="padding: 3px;">${detenteur.peutChanter ? 'â˜‘' : 'â˜'} Chanter / Jouer</td>
-                <td style="padding: 3px;">${detenteur.preterInstrument ? 'â˜‘' : 'â˜'} PrÃªter un instrument</td>
+                <td style="padding: 3px;">${detenteur.preterInstrument ? 'â˜‘' : 'â˜'} Prêter un instrument</td>
               </tr>
               <tr>
-                <td style="padding: 3px;">${detenteur.peutEtreFilme ? 'â˜‘' : 'â˜'} ÃŠtre filmÃ©(e)</td>
-                <td style="padding: 3px;">${detenteur.montrerLieuSacre ? 'â˜‘' : 'â˜'} Montrer un lieu sacrÃ©</td>
+                <td style="padding: 3px;">${detenteur.peutEtreFilme ? 'â˜‘' : 'â˜'} ÀŠtre filmé(e)</td>
+                <td style="padding: 3px;">${detenteur.montrerLieuSacre ? 'â˜‘' : 'â˜'} Montrer un lieu sacré</td>
               </tr>
             </table>
             
             <h3 style="color: #C65D2C; border-bottom: 1px solid #DAA520; padding-bottom: 3px; font-size: 12px; margin: 0 0 8px 0;">
-              ðŸ”’ SPÃ‰CIFICITÃ‰S VODUN
+              🔒 SPÉCIFICITÉS VODUN
             </h3>
             <div style="font-size: 10px; margin-bottom: 12px;">
-              <p style="margin: 3px 0;">${detenteur.anonymiser ? 'â˜‘' : 'â˜'} Nom anonymisÃ© dans les publications</p>
-              <p style="margin: 3px 0;">${detenteur.nomTraditionnelJamaisEcrit ? 'â˜‘' : 'â˜'} Nom traditionnel jamais Ã©crit</p>
+              <p style="margin: 3px 0;">${detenteur.anonymiser ? 'â˜‘' : 'â˜'} Nom anonymisé dans les publications</p>
+              <p style="margin: 3px 0;">${detenteur.nomTraditionnelJamaisEcrit ? 'â˜‘' : 'â˜'} Nom traditionnel jamais écrit</p>
             </div>
           </div>
           
@@ -120,12 +120,12 @@ export default function PDFGenerator({ detenteurId }) {
             <div style="width: 160px; height: 160px; overflow: hidden; border: 3px solid #C65D2C; border-radius: 8px; background: #FDF5E6;">
               ${photos.length > 0 
                 ? `<img src="${photos[0]}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />`
-                : '<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #6B5D54; font-size: 11px;">ðŸ“·<br/>Photo non disponible</div>'}
+                : '<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #6B5D54; font-size: 11px;">📝·<br/>Photo non disponible</div>'}
             </div>
             <p style="margin: 0; font-size: 8px; color: #6B5D54; text-align: center; font-style: italic;">Photo du signataire</p>
             
             <div style="width: 100%; text-align: center; margin-top: auto;">
-              <p style="margin: 0 0 8px 0; font-weight: bold; color: #8B4513; font-size: 10px;">âœï¸ SIGNATURE :</p>
+              <p style="margin: 0 0 8px 0; font-weight: bold; color: #8B4513; font-size: 10px;">✍️ï¸ SIGNATURE :</p>
               ${detenteur.signature 
                 ? `<img src="${detenteur.signature}" style="max-width: 100%; max-height: 60px; display: inline-block;" />` 
                 : '<div style="border-bottom: 1px solid #2C1810; height: 50px;"></div>'}
@@ -133,34 +133,34 @@ export default function PDFGenerator({ detenteurId }) {
           </div>
         </div>
         
-        <!-- DÃ‰CLARATION -->
+        <!-- DÉCLARATION -->
         <div style="background: #FDF5E6; padding: 10px 15px; margin-bottom: 15px; border-left: 4px solid #C65D2C; border-radius: 4px;">
           <p style="margin: 0; font-size: 10px; line-height: 1.6;">
-            Je soussignÃ©(e) confirme avoir Ã©tÃ© informÃ©(e) de l'objet de cette mission menÃ©e par 
-            <strong>Johnson Mario Apanh (OBG International BÃ©nin)</strong> et donne mon consentement libre et Ã©clairÃ© 
-            pour les permissions cochÃ©es ci-dessus.
+            Je soussigné(e) confirme avoir été informé(e) de l'objet de cette mission menée par 
+            <strong>Johnson Mario Apanh (OBG International Bénin)</strong> et donne mon consentement libre et éclairé 
+            pour les permissions cochées ci-dessus.
           </p>
         </div>
         
         <!-- DATE ET SIGNATURES -->
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; margin-bottom: 15px;">
           <div style="font-size: 10px;">
-            <p style="margin: 0;"><strong>Fait Ã  ${lieuSignature.toUpperCase()}, le ${new Date().toLocaleDateString('fr-FR')}</strong></p>
+            <p style="margin: 0;"><strong>Fait À  ${lieuSignature.toUpperCase()}, le ${new Date().toLocaleDateString('fr-FR')}</strong></p>
             ${detenteur.village && lieuSignature.toUpperCase() !== detenteur.village.toUpperCase() 
               ? `<p style="margin: 2px 0; font-size: 8px; color: #6B5D54; font-style: italic;">Signataire originaire de ${detenteur.village}</p>`
               : ''}
           </div>
           <div style="text-align: right; font-size: 10px;">
-            <p style="margin: 0; font-weight: bold; color: #8B4513;">L'ENQUÃŠTEUR :</p>
+            <p style="margin: 0; font-weight: bold; color: #8B4513;">L'ENQUÀŠTEUR :</p>
             <p style="margin: 25px 0 0 0; font-style: italic;">Johnson Mario Apanh</p>
-            <p style="margin: 0; font-size: 9px; color: #6B5D54;">OBG International BÃ©nin</p>
+            <p style="margin: 0; font-size: 9px; color: #6B5D54;">OBG International Bénin</p>
           </div>
         </div>
         
         <!-- COPYRIGHT -->
         <div style="text-align: center; margin-top: 20px; padding-top: 10px; border-top: 2px double #DAA520; font-size: 8px; color: #6B5D54;">
-          <p style="margin: 0; font-weight: bold;">Tout droit rÃ©servÃ© OBG International BÃ©nin</p>
-          <p style="margin: 2px 0 0 0;">HWENDO 2026 â€¢ Mission de sauvegarde du patrimoine musical du royaume Hwendo</p>
+          <p style="margin: 0; font-weight: bold;">Tout droit réservé OBG International Bénin</p>
+          <p style="margin: 2px 0 0 0;">HWENDO 2026 "¢ Mission de sauvegarde du patrimoine musical du royaume Hwendo</p>
         </div>
       </div>
     `;
@@ -196,7 +196,7 @@ export default function PDFGenerator({ detenteurId }) {
       disabled={loading}
       className="btn-action pdf"
     >
-      {loading ? 'â³ GÃ©nÃ©ration...' : 'ðŸ“¥ TÃ©lÃ©charger PDF'}
+      {loading ? 'â³ Génération...' : '📥 Télécharger PDF'}
     </button>
   );
 }

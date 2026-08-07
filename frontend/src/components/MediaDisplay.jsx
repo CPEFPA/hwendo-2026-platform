@@ -30,7 +30,7 @@ export default function MediaDisplay({ detenteurId }) {
   return (
     <div style={{marginTop: '12px'}}>
       <div style={{fontSize: '11px', color: 'var(--gris)', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px'}}>
-        MÃ©dias capturÃ©s ({files.length})
+        Médias capturés ({files.length})
       </div>
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: '5px'}}>
         {files.map(f => (
@@ -42,7 +42,7 @@ export default function MediaDisplay({ detenteurId }) {
               <video style={{width: '100%', borderRadius: '3px'}}><source src={urls[f.id]} type={f.mimeType} /></video>
             )}
             {f.type === 'audio' && (
-              <div style={{textAlign: 'center', padding: '10px', fontSize: '20px'}}>ðŸŽ¤</div>
+              <div style={{textAlign: 'center', padding: '10px', fontSize: '20px'}}>🎤</div>
             )}
           </div>
         ))}
