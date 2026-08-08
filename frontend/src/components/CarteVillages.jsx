@@ -1,95 +1,221 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { db } from '../db/localDB';
 
-// Coordonnées des villages du Bénin (royaume Hwendo et environs)
-const VILLAGE_COORDS = {
-  'ouidah': [6.3654, 2.0857], 'whydah': [6.3654, 2.0857],
-  'abomey': [7.1826, 1.9912],
-  'porto-novo': [6.4969, 2.6283], 'portonovo': [6.4969, 2.6283],
+// ============================================================
+// COORDONNEES DES VILLAGES DU BENIN (modifiable si besoin)
+// Format: 'nom normalise': [latitude, longitude]
+// ============================================================
+const VILLAGES_COORDS = {
+  'ouidah': [6.3653, 2.0864],
+  'pahou': [6.4619, 2.1797],
+  'bopa': [6.5000, 1.9833],
+  'agoe': [6.4441, 2.3614],
+  'agoue': [6.3167, 1.7833],
+  'be': [6.3547, 2.4158],
+  'be pkota': [6.3547, 2.4158],
   'cotonou': [6.3703, 2.3912],
-  'allada': [6.6770, 2.1486],
-  'grand-popo': [6.2592, 1.7910], 'grandpopo': [6.2592, 1.7910],
-  'come': [6.3969, 1.8786], 'comé': [6.3969, 1.8786],
-  'savi': [6.4333, 2.0667], 'savy': [6.4333, 2.0667],
-  'tori': [6.5833, 2.1833], 'tori-bossito': [6.5833, 2.1833],
-  'togbin': [6.4333, 2.2167],
-  'avrankou': [6.5833, 2.6167],
-  'akpro-misserete': [6.5833, 2.6833],
-  'ketou': [7.3667, 2.6000], 'kétou': [7.3667, 2.6000],
-  'sakete': [6.7333, 2.6500], 'sakété': [6.7333, 2.6500],
-  'pobe': [6.9833, 2.6667], 'pobè': [6.9833, 2.6667],
-  'lokossa': [6.6389, 1.7167],
-  'dogbo': [6.7833, 1.7833],
-  'aplahoue': [6.8333, 1.7333], 'aplahoué': [6.8333, 1.7333],
-  'klouekanme': [6.8667, 1.9833], 'klouékanmé': [6.8667, 1.9833],
-  'abobo': [5.4167, 2.0167],
-  'adjara': [6.4833, 2.6833],
-  'adjarra': [6.4500, 2.7333],
-  'seme': [6.4333, 2.5833], 'sèmè': [6.4333, 2.5833],
-  'kpomasse': [6.4167, 2.0500], 'kpomassè': [6.4167, 2.0500],
-  'torou': [7.0500, 2.0500],
-  'bohicon': [7.1783, 2.0667],
-  'zagnanado': [7.0833, 2.1333],
-  'cové': [7.0833, 2.3000], 'cove': [7.0833, 2.3000],
-  'zakin': [7.0167, 2.1500],
-  'dassa': [7.7833, 2.1667],
-  'save': [8.0333, 2.4833], 'savé': [8.0333, 2.4833],
-  'parakou': [9.3372, 2.6303],
-  'natitingou': [10.3167, 1.3833],
-  'djougou': [9.7086, 1.6658],
-  'tanguieta': [10.6167, 1.2667],
-  'kandi': [11.1342, 2.9386],
-  'malanville': [11.8667, 3.3833],
-  'nikki': [9.9417, 3.2106],
-  'bembereke': [10.2833, 2.6667],
-  'bassar': [6.5833, 2.1833],
-  'lome': [6.1319, 1.2228], 'lomé': [6.1319, 1.2228],
-  'aneho': [6.2333, 1.5833], 'aného': [6.2333, 1.5833]
+  'calavi': [6.4487, 2.3556],
+  'abomey-calavi': [6.4487, 2.3556],
+  'allada': [6.6667, 2.1500],
+  'tori': [6.6167, 2.2333],
+  'tori-bossito': [6.6167, 2.2333],
+  'toffo': [6.6333, 2.2167],
+  'ze': [6.5833, 2.3167],
+  'kpomasse': [6.4167, 2.0667],
+  'grand-popo': [6.2586, 1.6542],
+  'come': [6.3833, 1.8833],
+  'porto-novo': [6.4969, 2.6283],
+  'ouedo': [6.4500, 2.2800],
+  'akassato': [6.5333, 2.3000],
+  'ganvie': [6.4833, 2.4167],
+  'so-ava': [6.5167, 2.4833],
+  'savi': [6.3833, 2.1000],
+  'djakotey': [6.4000, 2.1167],
+  'pedah': [6.3500, 2.0500],
+  'daho': [6.4167, 2.0833],
+  'misserete': [6.3667, 2.4333],
+  'avlankou': [6.5000, 2.6000]
 };
 
-export default function CarteVillages({ villageData }) {
+// Centre de la carte : region d'Ouidah / Atlantique (Benin)
+const DEFAULT_CENTER = [6.42, 2.18];
+
+// Normalise un nom de village (minuscules, sans accents)
+function normalize(name) {
+  if (!name) return '';
+  return String(name).toLowerCase().trim()
+    .replace(/é|è|ê|ë/g, 'e')
+    .replace(/à|â|ä/g, 'a')
+    .replace(/ô|ö/g, 'o')
+    .replace(/ù|û|ü/g, 'u')
+    .replace(/î|ï/g, 'i')
+    .replace(/ç/g, 'c');
+}
+
+// Geocodage automatique via Nominatim (OpenStreetMap) pour les villages inconnus
+async function geocodeVillage(name) {
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&country=Benin&q=' + encodeURIComponent(name);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    }
+  } catch (e) {
+    console.warn('Geocodage impossible pour:', name);
+  }
+  return null;
+}
+
+function CarteVillages({ detenteurs: propDets }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  const markersLayer = useRef(null);
+  const [detenteurs, setDetenteurs] = useState(propDets || []);
 
+  // Charger les donnees si pas fournies en props
   useEffect(() => {
-    if (!mapRef.current) return;
-    if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
+    if (propDets && propDets.length > 0) {
+      setDetenteurs(propDets);
+    } else {
+      loadData();
+    }
+  }, [propDets]);
 
-    const map = L.map(mapRef.current).setView([6.9, 2.1], 8);
-    mapInstance.current = map;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 18
-    }).addTo(map);
-
-    let nbPlaces = 0;
-    villageData.forEach(v => {
-      const key = (v.name || '').toLowerCase().trim();
-      const coords = VILLAGE_COORDS[key];
-      if (coords) {
-        nbPlaces++;
-        L.marker(coords, {
-          icon: L.divIcon({
-            html: '<div style="background:#C65D2C;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);">' + v.value + '</div>',
-            className: '',
-            iconSize: [34, 34],
-            iconAnchor: [17, 17]
-          })
-        }).addTo(map).bindPopup('<b>' + v.name + '</b><br/>' + v.value + ' participant(s)');
+  const loadData = async () => {
+    try {
+      if (navigator.onLine) {
+        const res = await fetch('https://hwendo-backend.onrender.com/api/detenteurs');
+        if (res.ok) {
+          const data = await res.json();
+          setDetenteurs(data);
+          return;
+        }
       }
+    } catch (e) {}
+    try {
+      const local = await db.detenteurs.toArray();
+      setDetenteurs(local);
+    } catch (e) {}
+  };
+
+  // Initialiser la carte une seule fois
+  useEffect(() => {
+    if (!mapInstance.current && mapRef.current) {
+      const map = L.map(mapRef.current).setView(DEFAULT_CENTER, 11);
+
+      // Fond de carte Plan (OpenStreetMap)
+      const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Fond de carte Satellite (Esri, gratuit)
+      const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '© Esri'
+      });
+
+      // Selecteur Plan / Satellite en haut a droite
+      L.control.layers(
+        { 'Plan (OpenStreetMap)': osm, 'Satellite (Esri)': sat },
+        null,
+        { position: 'topright' }
+      ).addTo(map);
+
+      mapInstance.current = map;
+    }
+  }, []);
+
+  // Dessiner les cercles quand les donnees changent
+  useEffect(() => {
+    renderMarkers();
+  }, [detenteurs]);
+
+  const renderMarkers = async () => {
+    const map = mapInstance.current;
+    if (!map) return;
+
+    if (markersLayer.current) {
+      map.removeLayer(markersLayer.current);
+    }
+    const layer = L.layerGroup().addTo(map);
+    markersLayer.current = layer;
+
+    // Grouper par village
+    const groups = {};
+    (detenteurs || []).forEach((d) => {
+      const v = (d.village || 'Inconnu').trim();
+      const key = normalize(v) || 'inconnu';
+      if (!groups[key]) groups[key] = { name: v, count: 0, noms: [] };
+      groups[key].count++;
+      if (d.nomComplet) groups[key].noms.push(d.nomComplet);
     });
 
-    return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [villageData]);
+    const keys = Object.keys(groups);
+
+    for (let i = 0; i < keys.length; i++) {
+      const g = groups[keys[i]];
+      let coords = VILLAGES_COORDS[keys[i]];
+      let approx = false;
+
+      // Si village inconnu, essayer le geocodage automatique
+      if (!coords) {
+        coords = await geocodeVillage(g.name);
+      }
+
+      // Dernier recours: position approximative pres d'Ouidah
+      if (!coords) {
+        coords = [
+          DEFAULT_CENTER[0] + (Math.random() - 0.5) * 0.06,
+          DEFAULT_CENTER[1] + (Math.random() - 0.5) * 0.06
+        ];
+        approx = true;
+      }
+
+      const circle = L.circleMarker(coords, {
+        radius: 8 + g.count * 4,
+        color: '#8B4513',
+        weight: 2,
+        fillColor: '#C65D2C',
+        fillOpacity: 0.6
+      });
+
+      const html = '<div style="font-family:sans-serif;font-size:13px">' +
+        '<b style="color:#C65D2C">' + g.name + '</b><br/>' +
+        '<b>' + g.count + '</b> participant(s)' +
+        (approx ? '<br/><i>(position approximative)</i>' : '') +
+        '<br/><small>' + g.noms.slice(0, 6).join(', ') + (g.noms.length > 6 ? '...' : '') + '</small>' +
+        '</div>';
+
+      circle.bindPopup(html);
+      circle.bindTooltip(g.name + ' (' + g.count + ')');
+      layer.addLayer(circle);
+    }
+  };
 
   return (
     <div>
-      <div ref={mapRef} style={{height: '380px', borderRadius: '12px', zIndex: 0, border: '2px solid var(--sable)'}}></div>
-      <p style={{fontSize: '11px', color: '#6B5D54', marginTop: '8px', fontStyle: 'italic'}}>
-        🗺️ Les cercles ocre indiquent le nombre de participants par village. Cliquez sur un cercle pour le détail.
+      <div
+        ref={mapRef}
+        style={{
+          height: '420px',
+          width: '100%',
+          borderRadius: '12px',
+          border: '2px solid #C65D2C',
+          zIndex: 0
+        }}
+      ></div>
+      <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+        Les cercles ocre indiquent le nombre de participants par village.
+        Cliquez sur un cercle pour le detail.
+        Utilisez le selecteur en haut a droite pour passer en vue satellite.
       </p>
     </div>
   );
 }
+
+export default CarteVillages;
