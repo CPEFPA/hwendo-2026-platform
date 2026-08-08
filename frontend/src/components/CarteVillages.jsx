@@ -88,7 +88,7 @@ export default function CarteVillages({ villageData }) {
     <div>
       <div ref={mapRef} style={{height: '380px', borderRadius: '12px', zIndex: 0, border: '2px solid var(--sable)'}}></div>
       <p style={{fontSize: '11px', color: '#6B5D54', marginTop: '8px', fontStyle: 'italic'}}>
-        🗺️ Les cercles ocre indiquent le nombre de participants par village. Cliquez sur un cercle pour le détail.
+        🗺️ Les cercles ocre indiquent le nombre de participants par village. Cliquez sur un cercle pour le détail.
       </p>
     </div>
   );

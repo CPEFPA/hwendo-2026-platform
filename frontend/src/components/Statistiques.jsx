@@ -111,7 +111,7 @@ export default function Statistiques() {
 
       <div className="dashboard-stats">
         <div className="stat-card"><div className="stat-icon">👥</div><div className="stat-value">{stats.total}</div><div className="stat-label">Participants</div></div>
-        <div className="stat-card"><div className="stat-icon">✍️ï¸</div><div className="stat-value">{stats.signes}</div><div className="stat-label">Signés</div></div>
+        <div className="stat-card"><div className="stat-icon">✍️</div><div className="stat-value">{stats.signes}</div><div className="stat-label">Signés</div></div>
         <div className="stat-card"><div className="stat-icon">📸</div><div className="stat-value">{stats.photos}</div><div className="stat-label">Photos</div></div>
         <div className="stat-card"><div className="stat-icon">🎥</div><div className="stat-value">{stats.videos}</div><div className="stat-label">Vidéos</div></div>
         <div className="stat-card"><div className="stat-icon">🎤</div><div className="stat-value">{stats.audios}</div><div className="stat-label">Audios</div></div>
@@ -136,7 +136,7 @@ export default function Statistiques() {
         </div>
 
         <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)', gridColumn: '1 / -1'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🗺️ Carte des villages d'origine</h3>
+          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🗺️ Carte des villages d'origine</h3>
           <CarteVillages villageData={stats.villageData} />
         </div>
 
