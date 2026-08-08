@@ -1,71 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+const fs = require('fs');
+const path = require('path');
+
+const newForm = `import { useState, useRef, useEffect } from 'react';
 import { db } from '../db/localDB';
 import MediaCapture from './MediaCapture';
 import SignatureCanvas from './SignatureCanvas';
 import { api } from '../services/api';
-
-// URL Google Apps Script pour la création des consentements
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3mtlER8VU1RfeJlPrv0CMiy-MOdrFioMODyGFt-74fA56rGbbHTak7MLkMyKAdPoF/exec';
-
-// Fonction pour envoyer les données à Google Apps Script (format JSON)
-async function sendToGoogleAppsScript(detenteur, signature, photos) {
-  if (!APPS_SCRIPT_URL) {
-    console.warn('URL Apps Script non configurée');
-    return null;
-  }
-
-  try {
-    // Structure attendue par le script Google :
-    // { detenteur: {...}, signature: "...", photos: [...] }
-    const payload = {
-      detenteur: {
-        nomComplet: detenteur.nomComplet || '',
-        surnomRituel: detenteur.surnomRituel || '',
-        age: detenteur.age || '',
-        sexe: detenteur.sexe || '',
-        village: detenteur.village || '',
-        fonctionPalais: detenteur.fonctionPalais || '',
-        telephone: detenteur.telephone || '',
-        langue: detenteur.langue || '',
-        peutParler: detenteur.peutParler ? 'OUI' : 'NON',
-        peutChanter: detenteur.peutChanter ? 'OUI' : 'NON',
-        peutEtreFilme: detenteur.peutEtreFilme ? 'OUI' : 'NON',
-        peutFilmer: detenteur.peutFilmer ? 'OUI' : 'NON',
-        preterInstrument: detenteur.preterInstrument ? 'OUI' : 'NON',
-        montrerLieuSacre: detenteur.montrerLieuSacre ? 'OUI' : 'NON',
-        anonymiser: detenteur.anonymiser ? 'OUI' : 'NON',
-        nomTraditionnelJamaisEcrit: detenteur.nomTraditionnelJamaisEcrit ? 'OUI' : 'NON',
-        notes: detenteur.notes || '',
-        gps: detenteur.gps || '',
-        dateSignature: new Date().toLocaleDateString('fr-FR'),
-        lieuSignature: detenteur.lieuSignature || 'OUIDAH'
-      },
-      signature: signature || null,
-      photos: photos || []
-    };
-
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      console.log('Consentement créé dans Google Docs:', result);
-      return result;
-    } else {
-      console.warn('Erreur Google Apps Script:', result.error);
-      return null;
-    }
-  } catch (error) {
-    console.error('Erreur envoi Google Apps Script:', error);
-    return null;
-  }
-}
 
 function DetenteurForm({ onSaved }) {
   const [form, setForm] = useState({
@@ -123,7 +63,7 @@ function DetenteurForm({ onSaved }) {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setGps(`${pos.coords.latitude},${pos.coords.longitude}`);
+          setGps(\`\${pos.coords.latitude},\${pos.coords.longitude}\`);
           setMessage('📍 GPS capturé');
           setTimeout(() => setMessage(''), 2000);
         },
@@ -186,20 +126,6 @@ function DetenteurForm({ onSaved }) {
           
           // Marquer comme synchronisé en local
           await db.detenteurs.update(localId, { synced: true, backendId: result.id });
-          
-          // Envoyer à Google Apps Script pour créer le consentement
-          try {
-            const googleResult = await sendToGoogleAppsScript(detenteur, signature, photos);
-            if (googleResult && googleResult.success) {
-              console.log('Consentement créé dans Google Docs');
-              // Sauvegarder le lien du document Google
-              if (googleResult.docUrl) {
-                await db.detenteurs.update(localId, { docUrl: googleResult.docUrl });
-              }
-            }
-          } catch (googleError) {
-            console.warn('Erreur envoi Google:', googleError);
-          }
           
           setMessage('✅ Enregistré et synchronisé !');
         } catch (syncError) {
@@ -341,3 +267,7 @@ function DetenteurForm({ onSaved }) {
 }
 
 export default DetenteurForm;
+`;
+
+fs.writeFileSync(path.join(__dirname, 'src/components/DetenteurForm.jsx'), newForm, 'utf8');
+console.log('✅ DetenteurForm.jsx connecté au backend');
