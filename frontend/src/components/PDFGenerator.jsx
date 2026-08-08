@@ -2,9 +2,16 @@ import { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { db } from '../db/localDB';
 
-function transliterate(text) {
+// Fonction pour nettoyer le texte pour jsPDF (supprime emojis et caractères problematiques)
+function cleanText(text) {
   if (!text) return '';
   return String(text)
+    // Supprimer les emojis et caracteres speciaux
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')
+    .replace(/[\u{2000}-\u{206F}]/gu, '')
+    // Translitterer les accents
     .replace(/é/g, 'e')
     .replace(/è/g, 'e')
     .replace(/ê/g, 'e')
@@ -27,14 +34,15 @@ function transliterate(text) {
     .replace(/Ù/g, 'U')
     .replace(/Û/g, 'U')
     .replace(/Ç/g, 'C')
-    .replace(/'/g, "'")
-    .replace(/'/g, "'")
-    .replace(/"/g, '"')
-    .replace(/"/g, '"')
     .replace(/œ/g, 'oe')
     .replace(/Œ/g, 'OE')
-    .replace(/æ/g, 'ae')
-    .replace(/Æ/g, 'AE');
+    .replace(/'/g, "'")
+    .replace(/'/g, "'")
+    .replace(/"/g, '"')
+    .replace(/"/g, '"')
+    // Nettoyer les espaces multiples
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function PDFGenerator({ detenteur }) {
@@ -46,18 +54,33 @@ function PDFGenerator({ detenteur }) {
 
   const loadLocalMedia = async () => {
     try {
-      const localDet = await db.detenteurs.where('nomComplet').equals(detenteur.nomComplet).first();
+      // Chercher par nom complet OU par ID backend
+      let localDet = null;
+      
+      if (detenteur.nomComplet) {
+        localDet = await db.detenteurs.where('nomComplet').equals(detenteur.nomComplet).first();
+      }
+      
+      if (!localDet && detenteur.backendId) {
+        localDet = await db.detenteurs.where('backendId').equals(detenteur.backendId).first();
+      }
       
       if (localDet) {
         const signature = localDet.signature || null;
         let photo = null;
+        
         if (localDet.photos && localDet.photos.length > 0) {
           photo = localDet.photos[0].data;
-        } else {
-          const files = await db.files.where('detenteurId').equals(localDet.id).toArray();
-          const photoFile = files.find(f => f.type === 'photo');
-          if (photoFile) photo = photoFile.data;
+        } else if (localDet.id) {
+          try {
+            const files = await db.files.where('detenteurId').equals(localDet.id).toArray();
+            const photoFile = files.find(f => f.type === 'photo');
+            if (photoFile) photo = photoFile.data;
+          } catch (e) {
+            console.warn('Erreur recherche fichiers:', e);
+          }
         }
+        
         setLocalMedia({ photo, signature });
       }
     } catch (e) {
@@ -76,17 +99,17 @@ function PDFGenerator({ detenteur }) {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      // EN-TÊTE COMPACT
+      // EN-TETE
       doc.setFillColor(198, 93, 44);
       doc.rect(0, 0, pageWidth, 25, 'F');
       
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(18);
-      doc.text(transliterate('🎵 HWENDO 2026'), 15, 12);
+      doc.text('HWENDO 2026', 15, 12);
       
       doc.setFontSize(9);
-      doc.text(transliterate('Mission patrimoine musical - Royaume Hwendo'), 15, 18);
-      doc.text(transliterate('Date: ' + new Date(detenteur.createdAt || Date.now()).toLocaleDateString('fr-FR')), pageWidth - 15, 12, { align: 'right' });
+      doc.text('Mission patrimoine musical - Royaume Hwendo', 15, 18);
+      doc.text('Date: ' + new Date(detenteur.createdAt || Date.now()).toLocaleDateString('fr-FR'), pageWidth - 15, 12, { align: 'right' });
 
       doc.setTextColor(44, 24, 16);
       let y = 35;
@@ -94,12 +117,12 @@ function PDFGenerator({ detenteur }) {
       // TITRE
       doc.setFontSize(13);
       doc.setTextColor(139, 69, 19);
-      doc.text(transliterate('FICHE DÉTENTEUR DE SAVOIRS'), pageWidth / 2, y, { align: 'center' });
+      doc.text('FICHE DETENTEUR DE SAVOIRS', pageWidth / 2, y, { align: 'center' });
       y += 3;
       
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text('Ref: ' + (detenteur.reference || detenteur.id || '').substring(0, 20), pageWidth / 2, y, { align: 'center' });
+      doc.text('Ref: ' + (detenteur.reference || detenteur.id || '').substring(0, 25), pageWidth / 2, y, { align: 'center' });
       y += 6;
 
       doc.setDrawColor(218, 165, 32);
@@ -125,22 +148,23 @@ function PDFGenerator({ detenteur }) {
         try {
           doc.addImage(localMedia.photo, 'JPEG', rightX - photoWidth, rightY, photoWidth, photoHeight);
         } catch (e) {
-          doc.setFontSize(10);
+          doc.setFontSize(9);
           doc.setTextColor(150, 150, 150);
-          doc.text('📷', rightX - photoWidth/2, rightY + photoHeight/2, { align: 'center' });
+          doc.text('Photo', rightX - photoWidth/2, rightY + photoHeight/2, { align: 'center' });
+          doc.text('non disponible', rightX - photoWidth/2, rightY + photoHeight/2 + 4, { align: 'center' });
         }
       } else {
         doc.setFontSize(9);
         doc.setTextColor(150, 150, 150);
-        doc.text(transliterate('Photo'), rightX - photoWidth/2, rightY + photoHeight/2, { align: 'center' });
-        doc.text(transliterate('non disponible'), rightX - photoWidth/2, rightY + photoHeight/2 + 4, { align: 'center' });
+        doc.text('Photo', rightX - photoWidth/2, rightY + photoHeight/2, { align: 'center' });
+        doc.text('non disponible', rightX - photoWidth/2, rightY + photoHeight/2 + 4, { align: 'center' });
       }
 
       rightY += photoHeight + 3;
       
       doc.setFontSize(8);
       doc.setTextColor(139, 69, 19);
-      doc.text(transliterate('Signature manuscrite'), rightX - photoWidth/2, rightY, { align: 'center' });
+      doc.text('Signature manuscrite', rightX - photoWidth/2, rightY, { align: 'center' });
       rightY += 2;
 
       doc.setDrawColor(198, 93, 44);
@@ -151,81 +175,81 @@ function PDFGenerator({ detenteur }) {
         try {
           doc.addImage(signature, 'PNG', rightX - sigWidth, rightY, sigWidth, sigHeight);
         } catch (e) {
-          doc.setFontSize(9);
+          doc.setFontSize(8);
           doc.setTextColor(150, 150, 150);
-          doc.text('✍️', rightX - sigWidth/2, rightY + sigHeight/2, { align: 'center' });
+          doc.text('Non signee', rightX - sigWidth/2, rightY + sigHeight/2, { align: 'center' });
         }
       } else {
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(transliterate('Non signée'), rightX - sigWidth/2, rightY + sigHeight/2, { align: 'center' });
+        doc.text('Non signee', rightX - sigWidth/2, rightY + sigHeight/2, { align: 'center' });
       }
 
       // COLONNE GAUCHE : INFORMATIONS
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.setTextColor(198, 93, 44);
       doc.setFont(undefined, 'bold');
-      doc.text(transliterate('👤 IDENTITÉ'), leftX, y);
+      doc.text('IDENTITE', leftX, y);
       y += 5;
 
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setTextColor(44, 24, 16);
 
       const identite = [
-        [transliterate('Nom'), transliterate(detenteur.nomComplet)],
-        [transliterate('Surnom'), transliterate(detenteur.surnomRituel) || '-'],
-        [transliterate('Âge'), detenteur.age ? detenteur.age + transliterate(' ans') : '-'],
-        [transliterate('Sexe'), detenteur.sexe === 'M' ? transliterate('Masculin') : detenteur.sexe === 'F' ? transliterate('Féminin') : '-'],
-        [transliterate('Village'), transliterate(detenteur.village)],
-        [transliterate('Fonction'), transliterate(detenteur.fonctionPalais) || '-'],
-        [transliterate('Téléphone'), transliterate(detenteur.telephone) || '-'],
-        [transliterate('Langue'), transliterate(detenteur.langue) || '-']
+        ['Nom', cleanText(detenteur.nomComplet)],
+        ['Surnom', cleanText(detenteur.surnomRituel) || '-'],
+        ['Age', detenteur.age ? detenteur.age + ' ans' : '-'],
+        ['Sexe', detenteur.sexe === 'M' ? 'Masculin' : detenteur.sexe === 'F' ? 'Feminin' : '-'],
+        ['Village', cleanText(detenteur.village)],
+        ['Fonction', cleanText(detenteur.fonctionPalais) || '-'],
+        ['Telephone', cleanText(detenteur.telephone) || '-'],
+        ['Langue', cleanText(detenteur.langue) || '-']
       ];
 
       identite.forEach(([label, value]) => {
         doc.setFont(undefined, 'bold');
         doc.text(label + ':', leftX, y);
         doc.setFont(undefined, 'normal');
-        doc.text(String(value || '-'), leftX + 22, y);
-        y += 4;
+        doc.text(String(value || '-'), leftX + 25, y);
+        y += 4.5;
       });
 
       y += 3;
 
       // PERMISSIONS
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.setTextColor(198, 93, 44);
       doc.setFont(undefined, 'bold');
-      doc.text(transliterate('🎭 PERMISSIONS'), leftX, y);
+      doc.text('PERMISSIONS', leftX, y);
       y += 5;
 
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setTextColor(44, 24, 16);
 
       const permissions = [
-        [transliterate('🎤 Interviewé'), detenteur.peutParler],
-        [transliterate('🎵 Chanter'), detenteur.peutChanter],
-        [transliterate('🎥 Filmé'), detenteur.peutEtreFilme],
-        [transliterate('📸 Photographié'), detenteur.peutFilmer],
-        [transliterate('🪘 Prêt instrument'), detenteur.preterInstrument],
-        [transliterate('🏛️ Lieu sacré'), detenteur.montrerLieuSacre]
+        ['Interviewe', detenteur.peutParler],
+        ['Chanter', detenteur.peutChanter],
+        ['Filme', detenteur.peutEtreFilme],
+        ['Photographie', detenteur.peutFilmer],
+        ['Pret instrument', detenteur.preterInstrument],
+        ['Lieu sacre', detenteur.montrerLieuSacre]
       ];
 
       permissions.forEach(([label, granted]) => {
         doc.setTextColor(granted ? 72 : 229, granted ? 187 : 62, granted ? 120 : 62);
-        doc.text(granted ? '✓' : '✗', leftX, y);
+        doc.text(granted ? '[OUI]' : '[NON]', leftX, y);
         doc.setTextColor(44, 24, 16);
-        doc.text(label, leftX + 4, y);
-        y += 4;
+        doc.text(label, leftX + 15, y);
+        y += 4.5;
       });
 
       y += 3;
 
       // CONSENTEMENT
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.setTextColor(198, 93, 44);
       doc.setFont(undefined, 'bold');
-      doc.text(transliterate('✍️ CONSENTEMENT'), leftX, y);
+      doc.text('CONSENTEMENT', leftX, y);
       y += 5;
 
       const consentement = detenteur.consentementSigne || localMedia.signature || detenteur.signature;
@@ -233,31 +257,31 @@ function PDFGenerator({ detenteur }) {
       if (consentement) {
         doc.setTextColor(72, 187, 120);
         doc.setFont(undefined, 'bold');
-        doc.text('✓ ' + transliterate('SIGNÉ'), leftX, y);
+        doc.text('[SIGNE]', leftX, y);
       } else {
         doc.setTextColor(229, 62, 62);
         doc.setFont(undefined, 'bold');
-        doc.text('✗ ' + transliterate('NON SIGNÉ'), leftX, y);
+        doc.text('[NON SIGNE]', leftX, y);
       }
       y += 6;
 
-      // SPÉCIFICITÉS VODUN
+      // SPECIFICITES VODUN
       if (detenteur.anonymiser || detenteur.nomTraditionnelJamaisEcrit) {
-        doc.setFontSize(10);
+        doc.setFontSize(11);
         doc.setTextColor(198, 93, 44);
         doc.setFont(undefined, 'bold');
-        doc.text(transliterate('🔒 VODUN'), leftX, y);
+        doc.text('SPECIFICITES VODUN', leftX, y);
         y += 4;
 
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setTextColor(44, 24, 16);
         doc.setFont(undefined, 'normal');
         if (detenteur.anonymiser) {
-          doc.text(transliterate('🕶️ Anonymisation demandée'), leftX, y);
+          doc.text('- Anonymisation demandee', leftX, y);
           y += 4;
         }
         if (detenteur.nomTraditionnelJamaisEcrit) {
-          doc.text(transliterate('🤐 Nom jamais écrit'), leftX, y);
+          doc.text('- Nom traditionnel jamais ecrit', leftX, y);
           y += 4;
         }
       }
@@ -266,35 +290,35 @@ function PDFGenerator({ detenteur }) {
       const gps = detenteur.gps || detenteur.coordonneesGPS;
       if (gps) {
         y += 2;
-        doc.setFontSize(10);
+        doc.setFontSize(11);
         doc.setTextColor(198, 93, 44);
         doc.setFont(undefined, 'bold');
-        doc.text(transliterate('📍 LOCALISATION'), leftX, y);
+        doc.text('LOCALISATION GPS', leftX, y);
         y += 4;
 
-        doc.setFontSize(7);
+        doc.setFontSize(8);
         doc.setTextColor(44, 24, 16);
         doc.setFont(undefined, 'normal');
-        doc.text(gps, leftX, y);
+        doc.text(String(gps), leftX, y);
         y += 4;
       }
 
       // NOTES
       if (detenteur.notes) {
         y += 2;
-        doc.setFontSize(10);
+        doc.setFontSize(11);
         doc.setTextColor(198, 93, 44);
         doc.setFont(undefined, 'bold');
-        doc.text(transliterate('📝 NOTES'), leftX, y);
+        doc.text('NOTES TERRAIN', leftX, y);
         y += 4;
 
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setTextColor(44, 24, 16);
         doc.setFont(undefined, 'normal');
-        const noteLines = doc.splitTextToSize(transliterate(detenteur.notes), 100);
+        const noteLines = doc.splitTextToSize(cleanText(detenteur.notes), 100);
         noteLines.slice(0, 4).forEach(line => {
           doc.text(line, leftX, y);
-          y += 3.5;
+          y += 4;
         });
         if (noteLines.length > 4) {
           doc.text('...', leftX, y);
@@ -306,14 +330,14 @@ function PDFGenerator({ detenteur }) {
       doc.setTextColor(150, 150, 150);
       doc.setFont(undefined, 'normal');
       doc.text(
-        transliterate('HWENDO 2026 - OBG International Bénin - Patrimoine musical du Royaume Hwendo'),
+        'HWENDO 2026 - OBG International Benin - Patrimoine musical du Royaume Hwendo',
         pageWidth / 2,
         pageHeight - 8,
         { align: 'center' }
       );
 
-      // TÉLÉCHARGEMENT
-      const fileName = 'HWENDO_' + transliterate(detenteur.nomComplet || 'detenteur').replace(/\s+/g, '_') + '.pdf';
+      // TELECHARGEMENT
+      const fileName = 'HWENDO_' + cleanText(detenteur.nomComplet || 'detenteur').replace(/\s+/g, '_') + '.pdf';
       doc.save(fileName);
 
     } catch (error) {
@@ -336,7 +360,7 @@ function PDFGenerator({ detenteur }) {
         fontWeight: 'bold'
       }}
     >
-      📥 Télécharger PDF
+      Telecharger PDF
     </button>
   );
 }
