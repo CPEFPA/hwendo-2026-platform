@@ -1,79 +1,117 @@
 import { useRef, useState, useEffect } from 'react';
-import { db } from '../db/localDB';
 
-export default function MediaCapture({ tempDetenteurId }) {
-  const photoInput = useRef(null);
-  const videoInput = useRef(null);
-  const audioInput = useRef(null);
-  const [files, setFiles] = useState([]);
-  const [msg, setMsg] = useState('');
-  const [urls, setUrls] = useState({});
+function MediaCapture({ onPhoto, onVideo, onAudio }) {
+  const photoInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const audioInputRef = useRef(null);
+  const [preview, setPreview] = useState([]);
 
-  useEffect(() => {
-    if (tempDetenteurId) loadFiles();
-  }, [tempDetenteurId]);
-
-  const loadFiles = async () => {
-    try {
-      const all = await db.files.where('detenteurId').equals(tempDetenteurId).toArray();
-      setFiles(all);
-      const newUrls = {};
-      all.forEach(f => {
-        if (f.blob) newUrls[f.id] = URL.createObjectURL(f.blob);
-      });
-      setUrls(newUrls);
-    } catch (err) { console.error(err); }
+  const handleFile = (file, type) => {
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = e.target.result;
+      setPreview(prev => [...prev, { type, data, name: file.name }]);
+      
+      if (type === 'photo' && onPhoto) onPhoto(data);
+      if (type === 'video' && onVideo) onVideo(data);
+      if (type === 'audio' && onAudio) onAudio(data);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleFile = async (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      await db.files.add({
-        detenteurId: tempDetenteurId,
-        type: type,
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-        blob: file,
-        createdAt: new Date().toISOString()
-      });
-      setMsg('✍️… ' + type + ' sauvegardé (' + (file.size / 1024).toFixed(1) + ' Ko)');
-      loadFiles();
-    } catch (err) { setMsg('âŒ Erreur: ' + err.message); }
+  const handlePhotoChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(f => handleFile(f, 'photo'));
+    e.target.value = '';
+  };
+
+  const handleVideoChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(f => handleFile(f, 'video'));
+    e.target.value = '';
+  };
+
+  const handleAudioChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(f => handleFile(f, 'audio'));
+    e.target.value = '';
+  };
+
+  const removePreview = (index) => {
+    setPreview(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
     <div className="media-capture">
-      <h3>ðŸŽ¬ Capture Médias</h3>
       <div className="media-buttons">
-        <button type="button" onClick={() => photoInput.current.click()} className="media-btn photo">
+        <button type="button" className="media-btn photo" onClick={() => photoInputRef.current?.click()}>
           📸 Photo
         </button>
-        <button type="button" onClick={() => videoInput.current.click()} className="media-btn video">
+        <button type="button" className="media-btn video" onClick={() => videoInputRef.current?.click()}>
           🎥 Vidéo
         </button>
-        <button type="button" onClick={() => audioInput.current.click()} className="media-btn audio">
+        <button type="button" className="media-btn audio" onClick={() => audioInputRef.current?.click()}>
           🎤 Audio
         </button>
       </div>
 
-      <input type="file" accept="image/*" capture="environment" ref={photoInput} style={{display:'none'}} onChange={(e) => handleFile(e, 'photo')} />
-      <input type="file" accept="video/*" capture="environment" ref={videoInput} style={{display:'none'}} onChange={(e) => handleFile(e, 'video')} />
-      <input type="file" accept="audio/*" capture ref={audioInput} style={{display:'none'}} onChange={(e) => handleFile(e, 'audio')} />
+      <input
+        type="file"
+        ref={photoInputRef}
+        accept="image/*"
+        capture="environment"
+        multiple
+        onChange={handlePhotoChange}
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={videoInputRef}
+        accept="video/*"
+        capture="environment"
+        multiple
+        onChange={handleVideoChange}
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={audioInputRef}
+        accept="audio/*"
+        capture
+        multiple
+        onChange={handleAudioChange}
+        style={{ display: 'none' }}
+      />
 
-      {msg && <p style={{color: 'var(--vert-savane)', fontWeight: 'bold', marginTop: '10px'}}>{msg}</p>}
-
-      {files.length > 0 && (
+      {preview.length > 0 && (
         <div className="media-preview">
-          {files.map(f => (
-            <div key={f.id} className="media-item">
-              {f.type === 'photo' && urls[f.id] && <img src={urls[f.id]} alt={f.name} />}
-              {f.type === 'video' && urls[f.id] && <video controls><source src={urls[f.id]} type={f.mimeType} /></video>}
-              {f.type === 'audio' && urls[f.id] && <audio controls><source src={urls[f.id]} type={f.mimeType} /></audio>}
-              <div className="media-info">
-                {f.type === 'photo' ? '📸' : f.type === 'video' ? '🎥' : '🎤'} {(f.size / 1024).toFixed(0)} Ko
-              </div>
+          {preview.map((item, i) => (
+            <div key={i} className="media-item" style={{ position: 'relative' }}>
+              {item.type === 'photo' && <img src={item.data} alt={item.name} />}
+              {item.type === 'video' && <video src={item.data} controls style={{ width: '100%' }} />}
+              {item.type === 'audio' && <audio src={item.data} controls style={{ width: '100%' }} />}
+              <button
+                type="button"
+                onClick={() => removePreview(i)}
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  background: 'red',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '24px',
+                  height: '24px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ✕
+              </button>
+              <div style={{ fontSize: '10px', marginTop: '4px', wordBreak: 'break-all' }}>{item.name}</div>
             </div>
           ))}
         </div>
@@ -81,3 +119,5 @@ export default function MediaCapture({ tempDetenteurId }) {
     </div>
   );
 }
+
+export default MediaCapture;
