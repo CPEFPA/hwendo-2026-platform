@@ -1,79 +1,123 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/localDB';
 import { api } from '../services/api';
-import MediaDisplay from './MediaDisplay';
 import PDFGenerator from './PDFGenerator';
 
-export default function DetenteurList() {
-  const [dets, setDets] = useState([]);
+function DetenteurList() {
+  const [detenteurs, setDetenteurs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const loadData = async () => {
-    try {
-      const localData = await db.detenteurs.toArray();
-      setDets(localData);
-    } catch(e) { console.error(e); }
-  };
-
-  useEffect(() => { 
+  useEffect(() => {
     loadData();
-    const handler = () => loadData();
-    window.addEventListener('detenteur-added', handler);
-    return () => window.removeEventListener('detenteur-added', handler);
+    
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncFromBackend();
+    };
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Essayer d'abord le backend si en ligne
+      if (isOnline) {
+        try {
+          const backendData = await api.getDetenteurs();
+          console.log('✅ Données depuis backend:', backendData.length);
+          setDetenteurs(backendData);
+          setLoading(false);
+          return;
+        } catch (err) {
+          console.warn('⚠️ Backend indisponible, utilisation IndexedDB');
+        }
+      }
+      
+      // Fallback sur IndexedDB
+      const localData = await db.detenteurs.toArray();
+      setDetenteurs(localData);
+    } catch (error) {
+      console.error('Erreur:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncFromBackend = async () => {
+    if (!isOnline) return;
+    try {
+      const backendData = await api.getDetenteurs();
+      setDetenteurs(backendData);
+      console.log('✅ Sync backend:', backendData.length);
+    } catch (err) {
+      console.warn('⚠️ Sync échoué');
+    }
+  };
+
+  if (loading) {
+    return <div style={{textAlign: 'center', padding: '40px'}}>⏳ Chargement...</div>;
+  }
+
   return (
-    <div className="detenteurs-grid">
-      {dets.length === 0 ? (
-        <div style={{gridColumn: '1/-1', textAlign: 'center', padding: '60px 20px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <div style={{fontSize: '64px', marginBottom: '15px'}}>👥</div>
-          <h3 style={{color: 'var(--terre)', marginBottom: '10px'}}>Aucun détenteur enregistré</h3>
-          <p style={{color: 'var(--gris)'}}>Commencez par créer votre premier détenteur dans le menu "Nouveau détenteur"</p>
-        </div>
-      ) : (
-        dets.map(d => (
-          <div key={d.id || d.reference} className="detenteur-card">
+    <div>
+      <div style={{textAlign: 'right', marginBottom: '15px'}}>
+        {isOnline ? (
+          <span style={{color: 'green', fontSize: '12px'}}>🟢 En ligne - {detenteurs.length} détenteurs</span>
+        ) : (
+          <span style={{color: 'orange', fontSize: '12px'}}>🟠 Hors ligne - {detenteurs.length} détenteurs locaux</span>
+        )}
+        <button onClick={loadData} style={{marginLeft: '10px', padding: '5px 10px', background: '#4299e1', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>🔄 Rafraîchir</button>
+      </div>
+
+      <div className="detenteurs-grid">
+        {detenteurs.map((det) => (
+          <div key={det.id || det.reference} className="detenteur-card">
             <div className="detenteur-card-header">
-              <h3>{d.typePersonne === 'Invité' ? '🤐' : d.typePersonne === 'Visiteur' ? 'ðŸš¶' : d.typePersonne === 'Spectateur' ? 'ðŸ‘ï¸' : '🎵'} {d.nomComplet}</h3>
-              <div className="village">📝 Originaire de {d.village}</div>
-              {d.lieuSignature && <div style={{fontSize: '11px', opacity: 0.9, marginTop: '3px'}}>✍️ï¸ Signé À  {d.lieuSignature}</div>}
-              {d.syncStatus === 'synced' && (
-                <span className="sync-badge">✍️… SYNC</span>
-              )}
+              <h3>🎵 {det.nomComplet}</h3>
+              <div className="village">📍 Originaire de {det.village}</div>
             </div>
             <div className="detenteur-card-body">
               <div className="info-row">
-                <span className="info-label">À‚ge</span>
-                <span className="info-value">{d.age || '?'}</span>
+                <span className="info-label">Âge</span>
+                <span className="info-value">{det.age || 'N/A'}</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Sexe</span>
-                <span className="info-value">{d.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}</span>
+                <span className="info-value">{det.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}</span>
               </div>
-              {d.fonctionPalais && (
-                <div className="info-row">
-                  <span className="info-label">Fonction</span>
-                  <span className="info-value">{d.fonctionPalais}</span>
-                </div>
-              )}
-              {d.langue && (
-                <div className="info-row">
-                  <span className="info-label">Langue</span>
-                  <span className="info-value">{d.langue}</span>
-                </div>
-              )}
-              <MediaDisplay detenteurId={d.id} />
+              <div className="info-row">
+                <span className="info-label">Fonction</span>
+                <span className="info-value">{det.fonctionPalais || 'N/A'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Langue</span>
+                <span className="info-value">{det.langue || 'N/A'}</span>
+              </div>
             </div>
             <div className="detenteur-card-actions">
-              {d.docUrl && (
-                <a href={d.docUrl} target="_blank" rel="noopener noreferrer" className="btn-action doc">
-                  📝„ Google Docs
-                </a>
-              )}
-              <PDFGenerator detenteurId={d.id} />
+              <PDFGenerator detenteur={det} />
             </div>
           </div>
-        ))
+        ))}
+      </div>
+
+      {detenteurs.length === 0 && (
+        <div style={{textAlign: 'center', padding: '60px', color: 'var(--gris)'}}>
+          <p style={{fontSize: '48px', marginBottom: '20px'}}>📝</p>
+          <p>Aucun détenteur enregistré pour le moment</p>
+        </div>
       )}
     </div>
   );
 }
+
+export default DetenteurList;

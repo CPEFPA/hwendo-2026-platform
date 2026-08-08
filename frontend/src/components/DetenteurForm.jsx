@@ -1,197 +1,266 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { db } from '../db/localDB';
-import { api } from '../services/api';
-import SignatureCanvas from 'react-signature-canvas';
 import MediaCapture from './MediaCapture';
+import SignatureCanvas from './SignatureCanvas';
+import { api } from '../services/api';
 
-const blobToBase64 = (blob) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
-export default function DetenteurForm({ onSaved }) {
-  const tempId = useMemo(() => 'temp_' + Date.now(), []);
-  
-  const [form, setForm] = useState({ 
-    // 🏆• Nouveaux champs : type et lieu de signature
+function DetenteurForm({ onSaved }) {
+  const [form, setForm] = useState({
     typePersonne: 'Détenteur',
-    lieuSignature: 'OUIDAH',
+    nomComplet: '',
+    surnomRituel: '',
+    age: '',
+    sexe: 'M',
+    village: '',
+    fonctionPalais: '',
+    telephone: '',
+    langue: 'Fon',
     evenement: '',
-    
-    nomComplet: '', village: '', sexe: 'M', age: '',
-    surnomRituel: '', fonctionPalais: '', telephone: '', langue: 'Fon',
-    peutParler: false, peutChanter: false, peutEtreFilme: false,
-    peutFilmer: false, preterInstrument: false, montrerLieuSacre: false,
-    anonymiser: false, nomTraditionnelJamaisEcrit: false,
-    coordonneesGPS: '', notes: ''
+    lieuSignature: 'OUIDAH',
+    peutParler: true,
+    peutChanter: false,
+    peutEtreFilme: false,
+    peutFilmer: true,
+    preterInstrument: false,
+    montrerLieuSacre: false,
+    anonymiser: false,
+    nomTraditionnelJamaisEcrit: false,
+    notes: ''
   });
-  const [msg, setMsg] = useState('');
-  const sigCanvas = useRef(null);
 
-  const capturerGPS = () => {
+  const [signature, setSignature] = useState(null);
+  const [photos, setPhotos] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [audios, setAudios] = useState([]);
+  const [gps, setGps] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const captureGPS = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setForm({...form, coordonneesGPS: pos.coords.latitude + ',' + pos.coords.longitude});
-          setMsg('📝 Position GPS capturée !');
+          setGps(`${pos.coords.latitude},${pos.coords.longitude}`);
+          setMessage('📍 GPS capturé');
+          setTimeout(() => setMessage(''), 2000);
         },
-        (err) => setMsg('âŒ GPS refusé')
+        (err) => {
+          setMessage('❌ GPS non disponible');
+          setTimeout(() => setMessage(''), 2000);
+        }
       );
     }
   };
 
-  const submit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMsg('â³ Sauvegarde en cours...');
     
-    const signature = sigCanvas.current && !sigCanvas.current.isEmpty() 
-      ? sigCanvas.current.toDataURL('image/png') 
-      : null;
-    
-    const data = { ...form, age: form.age ? parseInt(form.age) : null, createdAt: new Date().toISOString() };
-    const localId = await db.detenteurs.add({ ...data, signature, syncStatus: 'pending' });
-    
-    const files = await db.files.where('detenteurId').equals(tempId).toArray();
-    const photos = [];
-    for (const file of files) {
-      if (file.type === 'photo' && file.blob) {
+    if (!form.nomComplet || !form.village) {
+      setMessage('❌ Nom et village obligatoires');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    setLoading(true);
+    setMessage('💾 Enregistrement...');
+
+    try {
+      // 1. Sauvegarder en local (IndexedDB) - toujours
+      const detenteur = {
+        ...form,
+        age: form.age ? parseInt(form.age) : null,
+        signature: signature || null,
+        gps: gps || null,
+        photos: photos.map(p => ({ type: 'photo', data: p })),
+        videos: videos.map(v => ({ type: 'video', data: v })),
+        audios: audios.map(a => ({ type: 'audio', data: a })),
+        createdAt: new Date().toISOString()
+      };
+
+      const localId = await db.detenteurs.add(detenteur);
+      console.log('✅ Sauvegardé localement:', localId);
+
+      // 2. Synchroniser avec le backend si en ligne
+      if (isOnline) {
         try {
-          const base64 = await blobToBase64(file.blob);
-          photos.push({ name: file.name, mimeType: file.mimeType, data: base64 });
-          await db.files.update(file.id, { detenteurId: localId });
-        } catch (err) { console.error(err); }
+          setMessage('🌐 Synchronisation...');
+          const backendData = {
+            nomComplet: form.nomComplet,
+            village: form.village,
+            sexe: form.sexe,
+            age: form.age ? parseInt(form.age) : null,
+            surnomRituel: form.surnomRituel || '',
+            fonctionPalais: form.fonctionPalais || '',
+            telephone: form.telephone || '',
+            langue: form.langue || 'Fon',
+            consentementSigne: signature ? true : false,
+            notes: form.notes || '',
+            coordonneesGPS: gps || ''
+          };
+
+          const result = await api.createDetenteur(backendData);
+          console.log('✅ Synchronisé avec backend:', result);
+          
+          // Marquer comme synchronisé en local
+          await db.detenteurs.update(localId, { synced: true, backendId: result.id });
+          
+          setMessage('✅ Enregistré et synchronisé !');
+        } catch (syncError) {
+          console.warn('⚠️ Sync backend échoué:', syncError);
+          setMessage('✅ Enregistré localement (sync plus tard)');
+        }
+      } else {
+        setMessage('✅ Enregistré localement (hors ligne)');
       }
+
+      setTimeout(() => {
+        setMessage('');
+        setForm({
+          typePersonne: 'Détenteur',
+          nomComplet: '',
+          surnomRituel: '',
+          age: '',
+          sexe: 'M',
+          village: '',
+          fonctionPalais: '',
+          telephone: '',
+          langue: 'Fon',
+          evenement: '',
+          lieuSignature: 'OUIDAH',
+          peutParler: true,
+          peutChanter: false,
+          peutEtreFilme: false,
+          peutFilmer: true,
+          preterInstrument: false,
+          montrerLieuSacre: false,
+          anonymiser: false,
+          nomTraditionnelJamaisEcrit: false,
+          notes: ''
+        });
+        setSignature(null);
+        setPhotos([]);
+        setVideos([]);
+        setAudios([]);
+        setGps(null);
+        setLoading(false);
+        
+        if (onSaved) onSaved();
+      }, 2000);
+
+    } catch (error) {
+      console.error('Erreur:', error);
+      setMessage('❌ Erreur: ' + error.message);
+      setLoading(false);
+      setTimeout(() => setMessage(''), 3000);
     }
-    
-    setMsg('✍️… Sauvegardé localement ! Envoi À  Google Drive...');
-    
-    try {
-      const saved = await api.createDetenteur(data);
-      await db.detenteurs.update(localId, { id: saved.id, syncStatus: 'synced' });
-    } catch (err) { console.error(err); }
-    
-    try {
-      const docResult = await api.generateConsentementDoc(data, signature, photos);
-      if (docResult.success) {
-        if (docResult.docUrl) await db.detenteurs.update(localId, { docUrl: docResult.docUrl });
-        setMsg('✍️… Document de consentement généré !');
-      }
-    } catch (err) {
-      setMsg('âš ï¸ Détenteur sauvegardé, doc en attente');
-    }
-    
-    setForm({ 
-      typePersonne: 'Détenteur',
-      lieuSignature: 'OUIDAH',
-      evenement: '',
-      nomComplet: '', village: '', sexe: 'M', age: '',
-      surnomRituel: '', fonctionPalais: '', telephone: '', langue: 'Fon',
-      peutParler: false, peutChanter: false, peutEtreFilme: false,
-      peutFilmer: false, preterInstrument: false, montrerLieuSacre: false,
-      anonymiser: false, nomTraditionnelJamaisEcrit: false,
-      coordonneesGPS: '', notes: ''
-    });
-    sigCanvas.current?.clear();
-    window.dispatchEvent(new Event('detenteur-added'));
-    if (onSaved) setTimeout(onSaved, 1500);
   };
 
   return (
-    <form onSubmit={submit} className="hwendo-form">
-      <h2>📝 Nouveau participant</h2>
-      
-      {/* 🏆• NOUVELLE SECTION : Contexte de signature */}
-      <h3>📝‹ Contexte de la signature</h3>
-      <div className="form-grid">
-        <select value={form.typePersonne} onChange={e=>setForm({...form, typePersonne:e.target.value})}>
+    <div className="hwendo-form">
+      <div style={{textAlign: 'right', marginBottom: '10px'}}>
+        {isOnline ? (
+          <span style={{color: 'green', fontSize: '12px'}}>🟢 En ligne</span>
+        ) : (
+          <span style={{color: 'orange', fontSize: '12px'}}>🟠 Hors ligne</span>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <h3>🎭 Type de personne</h3>
+        <select name="typePersonne" value={form.typePersonne} onChange={handleChange}>
           <option value="Détenteur">🎵 Détenteur de savoirs</option>
-          <option value="Invité">🤐 Invité</option>
-          <option value="Visiteur">ðŸš¶ Visiteur</option>
-          <option value="Spectateur">ðŸ‘ï¸ Spectateur</option>
+          <option value="Musicien">🎼 Musicien</option>
+          <option value="Griot">📜 Griot</option>
+          <option value="Prêtre Vodun">🙏 Prêtre Vodun</option>
+          <option value="Danseur">💃 Danseur</option>
+          <option value="Notable">👑 Notable</option>
+          <option value="Invité">🎁 Invité</option>
         </select>
-        <input placeholder="Lieu de signature *" value={form.lieuSignature} onChange={e=>setForm({...form, lieuSignature:e.target.value})} required />
-      </div>
-      <input placeholder="Événement / Occasion (ex: Festival, Visite royale)" value={form.evenement} onChange={e=>setForm({...form, evenement:e.target.value})} />
-      
-      <h3>ðŸ‘¤ Identité</h3>
-      <input placeholder="Nom complet *" value={form.nomComplet} onChange={e=>setForm({...form, nomComplet:e.target.value})} required />
-      <input placeholder="Surnom rituel" value={form.surnomRituel} onChange={e=>setForm({...form, surnomRituel:e.target.value})} />
-      <div className="form-grid">
-        <input type="number" placeholder="À‚ge" value={form.age} onChange={e=>setForm({...form, age:e.target.value})} />
-        <select value={form.sexe} onChange={e=>setForm({...form, sexe:e.target.value})}>
-          <option value="M">Masculin</option><option value="F">Féminin</option>
+
+        <h3>📋 Contexte de la signature</h3>
+        <select name="lieuSignature" value={form.lieuSignature} onChange={handleChange}>
+          <option value="OUIDAH">OUIDAH</option>
+          <option value="Pahou">Pahou</option>
+          <option value="Agoè">Agoè</option>
+          <option value="Bopa">Bopa</option>
         </select>
-      </div>
-      <input placeholder="Village d'origine *" value={form.village} onChange={e=>setForm({...form, village:e.target.value})} required />
-      <input placeholder="Fonction au palais" value={form.fonctionPalais} onChange={e=>setForm({...form, fonctionPalais:e.target.value})} />
-      <div className="form-grid">
-        <input placeholder="Téléphone" value={form.telephone} onChange={e=>setForm({...form, telephone:e.target.value})} />
-        <select value={form.langue} onChange={e=>setForm({...form, langue:e.target.value})}>
-          <option value="Fon">Fon</option><option value="Goun">Goun</option>
-          <option value="Mina">Mina</option><option value="Français">Français</option>
+        <input name="evenement" value={form.evenement} onChange={handleChange} placeholder="Événement / Occasion" />
+
+        <h3>👤 Identité</h3>
+        <input name="nomComplet" value={form.nomComplet} onChange={handleChange} placeholder="Nom complet *" required />
+        <input name="surnomRituel" value={form.surnomRituel} onChange={handleChange} placeholder="Surnom rituel" />
+        <input name="age" type="number" value={form.age} onChange={handleChange} placeholder="Âge" />
+        <select name="sexe" value={form.sexe} onChange={handleChange}>
+          <option value="M">Masculin</option>
+          <option value="F">Féminin</option>
         </select>
-      </div>
+        <input name="village" value={form.village} onChange={handleChange} placeholder="Village d'origine *" required />
+        <input name="fonctionPalais" value={form.fonctionPalais} onChange={handleChange} placeholder="Fonction au palais" />
+        <input name="telephone" value={form.telephone} onChange={handleChange} placeholder="Téléphone" />
+        <select name="langue" value={form.langue} onChange={handleChange}>
+          <option value="Fon">Fon</option>
+          <option value="Mina">Mina</option>
+          <option value="Yoruba">Yoruba</option>
+          <option value="Français">Français</option>
+        </select>
 
-      <h3>🎭 Permissions</h3>
-      <div className="checkbox-group">
-        {[
-          ['peutParler', '🎤 ÀŠtre interviewé(e)'],
-          ['peutChanter', '🎵 Chanter / Jouer'],
-          ['peutEtreFilme', '🎥 ÀŠtre filmé(e)'],
-          ['peutFilmer', '📸 ÀŠtre photographié(e)'],
-          ['preterInstrument', '🪘 Prêter un instrument'],
-          ['montrerLieuSacre', 'ðŸ›ï¸ Montrer un lieu sacré']
-        ].map(([key, label]) => (
-          <label key={key}>
-            <input type="checkbox" checked={form[key]} onChange={e=>setForm({...form, [key]:e.target.checked})} />
-            {label}
-          </label>
-        ))}
-      </div>
+        <h3>🎭 Permissions</h3>
+        <div className="checkbox-group">
+          <label><input type="checkbox" name="peutParler" checked={form.peutParler} onChange={handleChange} /> 🎤 Être interviewé(e)</label>
+          <label><input type="checkbox" name="peutChanter" checked={form.peutChanter} onChange={handleChange} /> 🎵 Chanter / Jouer</label>
+          <label><input type="checkbox" name="peutEtreFilme" checked={form.peutEtreFilme} onChange={handleChange} /> 🎥 Être filmé(e)</label>
+          <label><input type="checkbox" name="peutFilmer" checked={form.peutFilmer} onChange={handleChange} /> 📸 Être photographié(e)</label>
+          <label><input type="checkbox" name="preterInstrument" checked={form.preterInstrument} onChange={handleChange} /> 🪘 Prêter un instrument</label>
+          <label><input type="checkbox" name="montrerLieuSacre" checked={form.montrerLieuSacre} onChange={handleChange} /> 🏛️ Montrer un lieu sacré</label>
+        </div>
 
-      <h3>🔒 Spécificités Vodun</h3>
-      <div className="checkbox-group">
-        <label>
-          <input type="checkbox" checked={form.anonymiser} onChange={e=>setForm({...form, anonymiser:e.target.checked})} />
-          🕶️ Anonymiser mon nom
-        </label>
-        <label>
-          <input type="checkbox" checked={form.nomTraditionnelJamaisEcrit} onChange={e=>setForm({...form, nomTraditionnelJamaisEcrit:e.target.checked})} />
-          🤐 Nom traditionnel jamais écrit
-        </label>
-      </div>
+        <h3>🔒 Spécificités Vodun</h3>
+        <div className="checkbox-group">
+          <label><input type="checkbox" name="anonymiser" checked={form.anonymiser} onChange={handleChange} /> 🕶️ Anonymiser mon nom</label>
+          <label><input type="checkbox" name="nomTraditionnelJamaisEcrit" checked={form.nomTraditionnelJamaisEcrit} onChange={handleChange} /> 🤐 Nom traditionnel jamais écrit</label>
+        </div>
 
-      <h3>📝 Localisation</h3>
-      <button type="button" onClick={capturerGPS} className="btn-gps">
-        📝 Capturer GPS
-      </button>
-      {form.coordonneesGPS && <p style={{fontSize:'12px', color:'var(--gris)', marginBottom: '10px'}}>📝 {form.coordonneesGPS}</p>}
+        <h3>📍 Localisation</h3>
+        <button type="button" className="btn-gps" onClick={captureGPS}>📍 Capturer GPS</button>
+        {gps && <p style={{color: 'green', fontSize: '12px'}}>✅ GPS: {gps}</p>}
 
-      <h3>📝 Notes terrain</h3>
-      <textarea placeholder="Observations, contexte..." value={form.notes} onChange={e=>setForm({...form, notes:e.target.value})} />
+        <h3>📝 Notes terrain</h3>
+        <textarea name="notes" value={form.notes} onChange={handleChange} placeholder="Observations, contexte..." />
 
-      <h3>✍️ï¸ Signature manuscrite</h3>
-      <div className="signature-box">
-        <SignatureCanvas 
-          ref={sigCanvas}
-          penColor="#2C1810"
-          canvasProps={{style:{width:'100%', height:'150px'}}}
-        />
-      </div>
-      <button type="button" onClick={()=>sigCanvas.current?.clear()} className="btn-clear">
-        Effacer
-      </button>
+        <h3>✍️ Signature manuscrite</h3>
+        <SignatureCanvas onSave={setSignature} />
 
-      <MediaCapture tempDetenteurId={tempId} />
+        <h3>🎬 Capture Médias</h3>
+        <MediaCapture onPhoto={(p) => setPhotos([...photos, p])} onVideo={(v) => setVideos([...videos, v])} onAudio={(a) => setAudios([...audios, a])} />
 
-      <button type="submit" className="btn-primary">
-        ✍️… Enregistrer le participant
-      </button>
-      {msg && <div className="message">{msg}</div>}
-    </form>
+        <button type="submit" className="btn-primary" disabled={loading}>
+          {loading ? '⏳ Enregistrement...' : '✅ Enregistrer le participant'}
+        </button>
+      </form>
+
+      {message && <div className="message">{message}</div>}
+    </div>
   );
 }
+
+export default DetenteurForm;
