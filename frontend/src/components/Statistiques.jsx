@@ -2,197 +2,314 @@ import { useState, useEffect } from 'react';
 import { db } from '../db/localDB';
 import { api } from '../services/api';
 import CarteVillages from './CarteVillages';
-import { genererRapportComplet, capturerGraphiques } from './RapportPDF';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, CartesianGrid, AreaChart, Area
-} from 'recharts';
 
-const COLORS = ['#C65D2C', '#DAA520', '#556B2F', '#8B0000', '#4299e1', '#ed8936'];
+// Emojis via String.fromCodePoint (100% fiable, aucun probleme d'encodage)
+const icon = {
+  people: String.fromCodePoint(0x1F465),
+  pen: String.fromCodePoint(0x270D) + String.fromCodePoint(0xFE0F),
+  camera: String.fromCodePoint(0x1F4F8),
+  video: String.fromCodePoint(0x1F3A5),
+  audio: String.fromCodePoint(0x1F3A4),
+  calendar: String.fromCodePoint(0x1F4C5),
+  map: String.fromCodePoint(0x1F5FA) + String.fromCodePoint(0xFE0F),
+  trophy: String.fromCodePoint(0x1F3C6),
+  chart: String.fromCodePoint(0x1F4CA),
+  music: String.fromCodePoint(0x1F3B5),
+  download: String.fromCodePoint(0x1F4E5),
+  email: String.fromCodePoint(0x1F4E7),
+  gender: String.fromCodePoint(0x26A5),
+  check: String.fromCodePoint(0x2705)
+};
+
+// Composant graphique en barres (CSS pur, sans dependance externe)
+function BarChart({ data, color }) {
+  if (!data || data.length === 0) {
+    return <p style={{ color: '#999', fontSize: '13px', fontStyle: 'italic' }}>Pas encore de donnees.</p>;
+  }
+  const max = Math.max.apply(null, data.map(d => d.value).concat([1]));
+  return (
+    <div>
+      {data.map((item, i) => (
+        <div key={i} style={{ marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '3px' }}>
+            <span style={{ color: 'var(--terre)' }}>{item.name}</span>
+            <span style={{ fontWeight: 'bold', color: 'var(--ocre)' }}>{item.value}</span>
+          </div>
+          <div style={{ background: '#f0f0f0', borderRadius: '4px', height: '12px', overflow: 'hidden' }}>
+            <div style={{
+              width: ((item.value / max) * 100) + '%',
+              background: color || 'linear-gradient(90deg, #C65D2C, #DAA520)',
+              height: '100%',
+              borderRadius: '4px',
+              transition: 'width 0.5s ease'
+            }}></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Carte de statistique
+function StatCard({ iconChar, value, label }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-icon">{iconChar}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
+    </div>
+  );
+}
 
 export default function Statistiques() {
   const [stats, setStats] = useState(null);
   const [sending, setSending] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => {
+    loadStats();
+  }, []);
 
   const loadStats = async () => {
     try {
-      const dets = await db.detenteurs.toArray();
-      const files = await db.files.toArray();
+      let dets = [];
 
-      const parType = {};
-      dets.forEach(d => { const t = d.typePersonne || 'Détenteur'; parType[t] = (parType[t] || 0) + 1; });
-      const typeData = Object.entries(parType).map(([name, value]) => ({ name, value }));
+      // 1. Charger depuis le backend si en ligne (pour la synchronisation)
+      if (navigator.onLine) {
+        try {
+          const backendDets = await api.getDetenteurs();
+          if (backendDets && backendDets.length > 0) {
+            dets = backendDets;
+            console.log('Stats: donnees depuis backend:', dets.length);
+          }
+        } catch (e) {
+          console.warn('Stats: backend indisponible, utilisation locale');
+        }
+      }
 
-      const sexeData = [
-        { name: 'Hommes', value: dets.filter(d => d.sexe === 'M').length },
-        { name: 'Femmes', value: dets.filter(d => d.sexe === 'F').length }
-      ].filter(s => s.value > 0);
+      // 2. IndexedDB local (fallback + source des medias)
+      const localDets = await db.detenteurs.toArray();
+      if (dets.length === 0) {
+        dets = localDets;
+      }
 
-      const parVillage = {};
-      dets.forEach(d => { const v = d.village || 'Inconnu'; parVillage[v] = (parVillage[v] || 0) + 1; });
-      const villageData = Object.entries(parVillage).sort((a,b) => b[1]-a[1]).map(([name, value]) => ({ name, value }));
+      // 3. Compter les medias depuis IndexedDB local
+      let photos = 0, videos = 0, audios = 0;
+      localDets.forEach(d => {
+        if (d.photos && Array.isArray(d.photos)) photos += d.photos.length;
+        if (d.videos && Array.isArray(d.videos)) videos += d.videos.length;
+        if (d.audios && Array.isArray(d.audios)) audios += d.audios.length;
+      });
+      try {
+        const files = await db.files.toArray();
+        photos += files.filter(f => f.type === 'photo').length;
+        videos += files.filter(f => f.type === 'video').length;
+        audios += files.filter(f => f.type === 'audio').length;
+      } catch (e) {}
 
-      const parLangue = {};
-      dets.forEach(d => { const l = d.langue || 'Non renseigné'; parLangue[l] = (parLangue[l] || 0) + 1; });
-      const langueData = Object.entries(parLangue).sort((a,b) => b[1]-a[1]).map(([name, value]) => ({ name, value }));
+      // 4. Signes (signature locale OU consentement backend OU doc Google)
+      const signes = dets.filter(d => d.signature || d.consentementSigne || d.docUrl).length;
 
-      const parJour = {};
+      // 5. Donnees pour les graphiques
+      const langueCount = {};
+      const sexeCount = { M: 0, F: 0 };
+      const typeCount = {};
+      const jourCount = {};
+
       dets.forEach(d => {
+        if (d.langue) langueCount[d.langue] = (langueCount[d.langue] || 0) + 1;
+        if (d.sexe) sexeCount[d.sexe] = (sexeCount[d.sexe] || 0) + 1;
+        const t = d.typePersonne || d.fonctionPalais || 'Detenteur';
+        typeCount[t] = (typeCount[t] || 0) + 1;
         if (d.createdAt) {
-          const dt = new Date(d.createdAt);
-          const key = dt.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-          if (!parJour[key]) parJour[key] = { name: key, ts: dt.getTime(), value: 0 };
-          parJour[key].value++;
+          const day = new Date(d.createdAt).toLocaleDateString('fr-FR');
+          jourCount[day] = (jourCount[day] || 0) + 1;
         }
       });
-      const jourData = Object.values(parJour).sort((a,b) => a.ts - b.ts);
 
-      const permissions = [
-        ['peutParler', 'Interview'], ['peutChanter', 'Chant/Audio'],
-        ['peutEtreFilme', 'Filmé'], ['peutFilmer', 'Photographié'],
-        ['preterInstrument', 'Instrument'], ['montrerLieuSacre', 'Lieu sacré']
-      ].map(([key, label]) => ({ name: label, value: dets.filter(d => d[key]).length }));
+      const langueData = Object.entries(langueCount)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+      const typeData = Object.entries(typeCount)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+      const jourData = Object.entries(jourCount)
+        .map(([name, value]) => ({ name, value }));
+      const sexeData = [
+        { name: 'Femmes', value: sexeCount.F || 0 },
+        { name: 'Hommes', value: sexeCount.M || 0 }
+      ];
+
+      const permKeys = [
+        ['peutParler', 'Interviewe(e)'],
+        ['peutChanter', 'Chanter / Jouer'],
+        ['peutEtreFilme', 'Etre filme(e)'],
+        ['peutFilmer', 'Etre photographie(e)'],
+        ['preterInstrument', 'Preter un instrument'],
+        ['montrerLieuSacre', 'Montrer un lieu sacre']
+      ];
+      const permissions = permKeys.map(([key, label]) => ({
+        name: label,
+        value: dets.filter(d => d[key] === true || d[key] === 'OUI').length
+      }));
 
       setStats({
         total: dets.length,
-        signes: dets.filter(d => d.signature || d.docUrl).length,
-        photos: files.filter(f => f.type === 'photo').length,
-        videos: files.filter(f => f.type === 'video').length,
-        audios: files.filter(f => f.type === 'audio').length,
-        typeData, sexeData, villageData, langueData, jourData, permissions
+        signes,
+        photos,
+        videos,
+        audios,
+        langueData,
+        typeData,
+        jourData,
+        sexeData,
+        permissions,
+        detenteurs: dets
       });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error('Erreur stats:', e);
+      setStats({
+        total: 0, signes: 0, photos: 0, videos: 0, audios: 0,
+        langueData: [], typeData: [], jourData: [], sexeData: [],
+        permissions: [], detenteurs: []
+      });
+    }
   };
 
-  const exportPDF = async () => {
-    if (!stats) return;
+  const handleExportPDF = () => {
     setExporting(true);
-    try {
-      await genererRapportComplet(stats);
-    } catch (e) {
-      alert('Erreur export: ' + e.message);
-    }
-    setExporting(false);
+    setTimeout(() => {
+      window.print();
+      setExporting(false);
+    }, 300);
   };
 
-  const sendEmail = async () => {
-    const email = window.prompt('📧 Adresse email du destinataire :');
-    if (!email || !email.includes('@')) { alert('Adresse invalide'); return; }
+  const handleSendEmail = () => {
+    if (!stats) return;
     setSending(true);
-    try {
-      // Capturer les graphiques en base64
-      const images = await capturerGraphiques(stats);
-      await api.envoyerRapportEmail(stats, email, images);
-      alert('✍️… Rapport envoyé À  ' + email + ' !\n(Vérifiez votre boîte mail dans quelques secondes)');
-    } catch (e) {
-      alert('âŒ Erreur: ' + e.message);
-    }
-    setSending(false);
+    const subject = encodeURIComponent('Rapport HWENDO 2026 - Statistiques de la mission');
+    const bodyText = encodeURIComponent(
+      'RAPPORT HWENDO 2026\n' +
+      'Mission de sauvegarde du patrimoine musical\n\n' +
+      'Participants: ' + stats.total + '\n' +
+      'Consentements signes: ' + stats.signes + '\n' +
+      'Photos capturees: ' + stats.photos + '\n' +
+      'Videos: ' + stats.videos + '\n' +
+      'Audios: ' + stats.audios + '\n\n' +
+      'Genere le ' + new Date().toLocaleString('fr-FR')
+    );
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + bodyText;
+    setTimeout(() => setSending(false), 1000);
   };
 
-  if (!stats) return <div style={{textAlign: 'center', padding: '50px'}}>â³ Chargement des statistiques...</div>;
+  if (!stats) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px', color: 'var(--gris)' }}>
+        <div style={{ fontSize: '40px', marginBottom: '15px' }}>{icon.chart}</div>
+        <p>Chargement des statistiques...</p>
+      </div>
+    );
+  }
 
-  const languesTriees = [...stats.langueData].sort((a,b) => b.value - a.value);
-  const maxLangue = languesTriees[0]?.value || 1;
+  const sectionStyle = {
+    background: 'white',
+    padding: '25px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(139,69,19,0.1)',
+    marginBottom: '20px'
+  };
+
+  const titleStyle = {
+    color: 'var(--terre)',
+    fontSize: '16px',
+    marginBottom: '15px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  };
 
   return (
     <div>
-      <div style={{display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px'}}>
-        <button onClick={exportPDF} disabled={exporting} className="btn-action pdf" style={{padding: '10px 20px', fontSize: '14px'}}>
-          {exporting ? 'â³ Génération...' : '📥 Rapport PDF complet'}
+      {/* Boutons d'action */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <button
+          onClick={handleExportPDF}
+          disabled={exporting}
+          style={{
+            background: 'linear-gradient(135deg, #C65D2C, #8B4513)',
+            color: 'white',
+            border: 'none',
+            padding: '10px 18px',
+            borderRadius: '8px',
+            cursor: exporting ? 'wait' : 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {icon.download} Rapport PDF complet
         </button>
-        <button onClick={sendEmail} disabled={sending} className="btn-action doc" style={{padding: '10px 20px', fontSize: '14px'}}>
-          {sending ? 'â³ Envoi...' : '📧 Envoyer par email'}
+        <button
+          onClick={handleSendEmail}
+          disabled={sending}
+          style={{
+            background: 'linear-gradient(135deg, #2d6a4f, #1b4332)',
+            color: 'white',
+            border: 'none',
+            padding: '10px 18px',
+            borderRadius: '8px',
+            cursor: sending ? 'wait' : 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {icon.email} Envoyer par email
         </button>
       </div>
 
+      {/* Cartes de statistiques */}
       <div className="dashboard-stats">
-        <div className="stat-card"><div className="stat-icon">👥</div><div className="stat-value">{stats.total}</div><div className="stat-label">Participants</div></div>
-        <div className="stat-card"><div className="stat-icon">✍️</div><div className="stat-value">{stats.signes}</div><div className="stat-label">Signés</div></div>
-        <div className="stat-card"><div className="stat-icon">📸</div><div className="stat-value">{stats.photos}</div><div className="stat-label">Photos</div></div>
-        <div className="stat-card"><div className="stat-icon">🎥</div><div className="stat-value">{stats.videos}</div><div className="stat-label">Vidéos</div></div>
-        <div className="stat-card"><div className="stat-icon">🎤</div><div className="stat-value">{stats.audios}</div><div className="stat-label">Audios</div></div>
+        <StatCard iconChar={icon.people} value={stats.total} label="Participants" />
+        <StatCard iconChar={icon.pen} value={stats.signes} label="Signes" />
+        <StatCard iconChar={icon.camera} value={stats.photos} label="Photos" />
+        <StatCard iconChar={icon.video} value={stats.videos} label="Videos" />
+        <StatCard iconChar={icon.audio} value={stats.audios} label="Audios" />
       </div>
 
-      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px'}}>
-        <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)', gridColumn: '1 / -1'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>📅 Évolution de l'événement</h3>
-          {stats.jourData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={stats.jourData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="name" tick={{fontSize: 12}} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Area type="monotone" dataKey="value" stroke="#C65D2C" fill="#DAA520" fillOpacity={0.4} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <p style={{color: '#6B5D54', fontStyle: 'italic'}}>Pas encore de données datées.</p>
-          )}
-        </div>
+      {/* Evolution de l'evenement */}
+      <div style={sectionStyle}>
+        <h3 style={titleStyle}>{icon.calendar} Evolution de l'evenement</h3>
+        {stats.jourData.length > 0
+          ? <BarChart data={stats.jourData} />
+          : <p style={{ color: '#999', fontSize: '13px', fontStyle: 'italic' }}>Pas encore de donnees datees.</p>
+        }
+      </div>
 
-        <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)', gridColumn: '1 / -1'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🗺️ Carte des villages d'origine</h3>
-          <CarteVillages villageData={stats.villageData} />
-        </div>
+      {/* Carte des villages */}
+      <div style={sectionStyle}>
+        <h3 style={titleStyle}>{icon.map} Carte des villages d'origine</h3>
+        <CarteVillages detenteurs={stats.detenteurs} />
+      </div>
 
-        <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>ðŸ† Classement des langues</h3>
-          {languesTriees.map((l, i) => (
-            <div key={l.name} style={{marginBottom: '12px'}}>
-              <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px'}}>
-                <span style={{fontWeight: 'bold'}}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1) + '.'} {l.name}</span>
-                <span style={{color: 'var(--ocre)', fontWeight: 'bold'}}>{l.value}</span>
-              </div>
-              <div style={{background: 'var(--sable)', borderRadius: '10px', height: '10px', overflow: 'hidden'}}>
-                <div style={{width: ((l.value / maxLangue) * 100) + '%', height: '100%', background: 'linear-gradient(90deg, #C65D2C, #DAA520)', borderRadius: '10px'}}></div>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Classement des langues */}
+      <div style={sectionStyle}>
+        <h3 style={titleStyle}>{icon.trophy} Classement des langues</h3>
+        <BarChart data={stats.langueData} />
+      </div>
 
-        <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>👥 Par type de personne</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={stats.typeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="name" tick={{fontSize: 12}} />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#C65D2C" radius={[6,6,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Par type de personne */}
+      <div style={sectionStyle}>
+        <h3 style={titleStyle}>{icon.people} Par type de personne</h3>
+        <BarChart data={stats.typeData} />
+      </div>
 
-        <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>⚥ Répartition par sexe</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie data={stats.sexeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                {stats.sexeData.map((entry, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Legend />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Repartition par sexe */}
+      <div style={sectionStyle}>
+        <h3 style={titleStyle}>{icon.gender} Repartition par sexe</h3>
+        <BarChart data={stats.sexeData} />
+      </div>
 
-        <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(139,69,19,0.1)'}}>
-          <h3 style={{color: 'var(--terre)', marginBottom: '15px'}}>🎭 Permissions accordées</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={stats.permissions} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis type="number" allowDecimals={false} />
-              <YAxis type="category" dataKey="name" width={90} tick={{fontSize: 11}} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#556B2F" radius={[0,6,6,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Permissions accordees */}
+      <div style={sectionStyle}>
+        <h3 style={titleStyle}>{icon.music} Permissions accordees</h3>
+        <BarChart data={stats.permissions} />
       </div>
     </div>
   );
