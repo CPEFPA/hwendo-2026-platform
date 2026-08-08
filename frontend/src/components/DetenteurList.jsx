@@ -107,8 +107,12 @@ function DetenteurList() {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showReset, setShowReset] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [resetText, setResetText] = useState('');
   const [resetting, setResetting] = useState(false);
+  const PROTECTED_PASSWORD = '1972Albertine';
 
   useEffect(() => {
     loadData();
@@ -222,13 +226,93 @@ function DetenteurList() {
         }}>
           {String.fromCodePoint(0x1F504)} Rafraîchir
         </button>
-        <button onClick={() => setShowReset(true)} style={{
+        <button onClick={() => { setShowPassword(true); setPassword(''); setPasswordError(''); }} style={{
           padding: '6px 12px', background: '#e53e3e', color: 'white',
           border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold'
         }}>
           {String.fromCodePoint(0x1F5D1)} Réinitialiser
         </button>
       </div>
+
+      {/* Modal MOT DE PASSE */}
+      {showPassword && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 9998
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '12px', padding: '30px',
+            maxWidth: '400px', width: '90%', boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
+          }}>
+            <h3 style={{ color: '#C65D2C', marginTop: 0 }}>
+              🔒 Accès protégé
+            </h3>
+            <p style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '15px' }}>
+              Cette action est réservée aux administrateurs. Veuillez saisir le mot de passe pour continuer.
+            </p>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+              Mot de passe :
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (password === PROTECTED_PASSWORD) {
+                    setShowPassword(false);
+                    setShowReset(true);
+                  } else {
+                    setPasswordError('Mot de passe incorrect');
+                  }
+                }
+              }}
+              placeholder="Saisissez le mot de passe"
+              autoFocus
+              style={{
+                width: '100%', padding: '10px', border: '2px solid #C65D2C',
+                borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box'
+              }}
+            />
+            {passwordError && (
+              <p style={{ color: '#e53e3e', fontSize: '13px', marginTop: '8px', marginBottom: 0 }}>
+                ❌ {passwordError}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button
+                onClick={() => { setShowPassword(false); setPassword(''); setPasswordError(''); }}
+                style={{
+                  flex: 1, padding: '12px', background: '#f0f0f0', color: '#333',
+                  border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  if (password === PROTECTED_PASSWORD) {
+                    setShowPassword(false);
+                    setShowReset(true);
+                  } else {
+                    setPasswordError('Mot de passe incorrect');
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '12px',
+                  background: password ? '#C65D2C' : '#ccc',
+                  color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: password ? 'pointer' : 'not-allowed',
+                  fontWeight: 'bold'
+                }}
+              >
+                Valider
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmation */}
       {showReset && (
