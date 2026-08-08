@@ -44,13 +44,39 @@ function App() {
 
   const loadStats = async () => {
     try {
-      const total = await db.detenteurs.count();
-      const allDets = await db.detenteurs.toArray();
-      const signes = allDets.filter(d => d.signature || d.docUrl).length;
+      let total = 0;
+      let signes = 0;
+      let photos = 0;
+
+      // Essayer le backend d'abord si en ligne
+      if (navigator.onLine) {
+        try {
+          const response = await fetch('https://hwendo-backend.onrender.com/api/detenteurs');
+          if (response.ok) {
+            const backendDets = await response.json();
+            total = backendDets.length;
+            signes = backendDets.filter(d => d.consentementSigne).length;
+          }
+        } catch (e) {
+          console.warn('Backend indisponible, utilisation IndexedDB');
+        }
+      }
+
+      // Fallback sur IndexedDB si backend indisponible
+      if (total === 0) {
+        total = await db.detenteurs.count();
+        const allDets = await db.detenteurs.toArray();
+        signes = allDets.filter(d => d.signature || d.docUrl).length;
+      }
+
+      // Photos toujours depuis IndexedDB (médias locaux)
       const allFiles = await db.files.toArray();
-      const photos = allFiles.filter(f => f.type === 'photo').length;
+      photos = allFiles.filter(f => f.type === 'photo').length;
+
       setStats({ total, signes, photos });
-    } catch (e) {}
+    } catch (e) {
+      console.error('Erreur stats:', e);
+    }
   };
 
   const icon = {

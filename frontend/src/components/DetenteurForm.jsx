@@ -4,6 +4,56 @@ import MediaCapture from './MediaCapture';
 import SignatureCanvas from './SignatureCanvas';
 import { api } from '../services/api';
 
+// URL Google Apps Script pour la création des consentements
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3mtlER8VU1RfeJlPrv0CMiy-MOdrFioMODyGFt-74fA56rGbbHTak7MLkMyKAdPoF/exec';
+
+// Fonction pour envoyer les données à Google Apps Script
+async function sendToGoogleAppsScript(detenteur) {
+  if (!APPS_SCRIPT_URL) {
+    console.warn('URL Apps Script non configurée');
+    return null;
+  }
+
+  try {
+    const formData = new URLSearchParams();
+    formData.append('nomComplet', detenteur.nomComplet || '');
+    formData.append('surnomRituel', detenteur.surnomRituel || '');
+    formData.append('age', detenteur.age || '');
+    formData.append('sexe', detenteur.sexe || '');
+    formData.append('village', detenteur.village || '');
+    formData.append('fonctionPalais', detenteur.fonctionPalais || '');
+    formData.append('telephone', detenteur.telephone || '');
+    formData.append('langue', detenteur.langue || '');
+    formData.append('peutParler', detenteur.peutParler ? 'OUI' : 'NON');
+    formData.append('peutChanter', detenteur.peutChanter ? 'OUI' : 'NON');
+    formData.append('peutEtreFilme', detenteur.peutEtreFilme ? 'OUI' : 'NON');
+    formData.append('peutFilmer', detenteur.peutFilmer ? 'OUI' : 'NON');
+    formData.append('preterInstrument', detenteur.preterInstrument ? 'OUI' : 'NON');
+    formData.append('montrerLieuSacre', detenteur.montrerLieuSacre ? 'OUI' : 'NON');
+    formData.append('anonymiser', detenteur.anonymiser ? 'OUI' : 'NON');
+    formData.append('nomTraditionnelJamaisEcrit', detenteur.nomTraditionnelJamaisEcrit ? 'OUI' : 'NON');
+    formData.append('notes', detenteur.notes || '');
+    formData.append('gps', detenteur.gps || '');
+    formData.append('dateSignature', new Date().toLocaleDateString('fr-FR'));
+    formData.append('lieuSignature', detenteur.lieuSignature || 'OUIDAH');
+
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData.toString()
+    });
+
+    console.log('Données envoyées à Google Apps Script');
+    return true;
+  } catch (error) {
+    console.error('Erreur Google Apps Script:', error);
+    return null;
+  }
+}
+
 function DetenteurForm({ onSaved }) {
   const [form, setForm] = useState({
     typePersonne: 'Détenteur',
@@ -123,6 +173,14 @@ function DetenteurForm({ onSaved }) {
           
           // Marquer comme synchronisé en local
           await db.detenteurs.update(localId, { synced: true, backendId: result.id });
+          
+          // Envoyer à Google Apps Script pour créer le consentement
+          try {
+            await sendToGoogleAppsScript(detenteur);
+            console.log('Consentement envoyé à Google Docs');
+          } catch (googleError) {
+            console.warn('Erreur envoi Google:', googleError);
+          }
           
           setMessage('✅ Enregistré et synchronisé !');
         } catch (syncError) {
